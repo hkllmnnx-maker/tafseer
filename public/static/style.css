@@ -463,6 +463,12 @@ p { color: var(--text-secondary); }
 .badge-gold { background: var(--gold-light); color: var(--gold-dark); }
 [data-theme="dark"] .badge-gold { color: var(--gold-secondary); }
 .badge-outline { background: transparent; border: 1px solid var(--border-default); color: var(--text-secondary); }
+.badge-success { background: #d4ebde; color: #0f5c3e; border: 1px solid rgba(15, 92, 62, 0.3); }
+.badge-warning { background: #fff3e0; color: #b97a1a; border: 1px solid rgba(185, 122, 26, 0.3); }
+.badge-danger  { background: #fde2e1; color: #b3261e; border: 1px solid rgba(179, 38, 30, 0.3); }
+[data-theme="dark"] .badge-success { background: rgba(42, 153, 104, 0.2); color: #6fd1a4; border-color: rgba(42, 153, 104, 0.4); }
+[data-theme="dark"] .badge-warning { background: rgba(212, 168, 90, 0.18); color: #f0c97a; border-color: rgba(212, 168, 90, 0.4); }
+[data-theme="dark"] .badge-danger  { background: rgba(179, 38, 30, 0.2); color: #f3a59f; border-color: rgba(179, 38, 30, 0.5); }
 
 .chip {
   display: inline-flex;

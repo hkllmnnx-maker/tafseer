@@ -9,6 +9,7 @@ import { getAyahsBySurah } from '../../data/ayahs'
 import { TAFSEERS } from '../../data/tafseers'
 import { BOOKS } from '../../data/books'
 import { AUTHORS } from '../../data/authors'
+import { getSurahCoverage } from '../../lib/coverage'
 
 function toArabicNumber(n: number): string {
   return n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d, 10)])
@@ -65,13 +66,45 @@ export const ReadPage = ({ surahNumber }: { surahNumber: number }) => {
 
           <div class="flex flex-wrap gap-2 mt-4" style="justify-content:center">
             <span class="badge badge-gold">
-              <IconHash size={11} /> {toArabicNumber(ayahs.length)} آية في العينة
+              <IconHash size={11} /> {toArabicNumber(ayahs.length)} / {toArabicNumber(surah.ayahCount)} آية متوفرة
             </span>
             {totalTafseersInSurah > 0 ? (
               <span class="badge">
                 <IconQuote size={11} /> {toArabicNumber(totalTafseersInSurah)} تفسير في {toArabicNumber(ayahsWithTafseer)} آية
               </span>
             ) : null}
+            {(() => {
+              const cov = getSurahCoverage(surahNumber)
+              if (!cov) return null
+              const completenessLabel: Record<string, string> = {
+                'complete': 'مكتمل',
+                'partial': 'جزئي',
+                'minimal': 'محدود',
+                'none': 'بدون عينة',
+              }
+              const completenessClass: Record<string, string> = {
+                'complete': 'badge-success',
+                'partial': 'badge-warning',
+                'minimal': 'badge-warning',
+                'none': 'badge-danger',
+              }
+              return (
+                <span class={`badge ${completenessClass[cov.completeness] || ''}`}>
+                  التغطية: {cov.ayahCoveragePercent}% — {completenessLabel[cov.completeness] || cov.completeness}
+                </span>
+              )
+            })()}
+          </div>
+          <div style="margin-top:1rem;max-width:480px;margin-inline:auto">
+            {(() => {
+              const cov = getSurahCoverage(surahNumber)
+              if (!cov) return null
+              return (
+                <div class="coverage-bar" aria-label={`نسبة التغطية ${cov.ayahCoveragePercent}%`}>
+                  <span style={`width:${Math.max(2, cov.ayahCoveragePercent)}%`}></span>
+                </div>
+              )
+            })()}
           </div>
         </div>
 

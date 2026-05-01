@@ -63,18 +63,33 @@
     })
   }
 
-  // ============== Copy buttons ==============
+  // ============== Copy buttons (نص التفسير + معلومات المصدر) ==============
   function initCopy() {
     document.querySelectorAll('.copy-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const target = document.querySelector(btn.getAttribute('data-copy-target') || '')
         if (!target) return
-        const text = target.innerText.trim()
+        const body = target.innerText.trim()
+        // اجمع معلومات المصدر من بطاقة التفسير الأم لتذييل النسخ
+        const card = target.closest('.tafseer-card') || target.parentElement
+        let footer = ''
+        if (card) {
+          const bookName = (card.querySelector('.tafseer-book-name') || {}).innerText || ''
+          const authorName = (card.querySelector('.tafseer-author-name') || {}).innerText || ''
+          const citation = (card.querySelector('.source-citation') || {}).innerText || ''
+          const parts = []
+          if (bookName.trim()) parts.push('الكتاب: ' + bookName.trim())
+          if (authorName.trim()) parts.push('المؤلف/البيانات: ' + authorName.trim())
+          if (citation.trim()) parts.push(citation.trim())
+          if (parts.length) footer = '\n\n— المصدر —\n' + parts.join('\n')
+        }
+        const pageUrl = window.location.href
+        const text = body + footer + '\n\nالرابط: ' + pageUrl +
+          '\nملاحظة: راجع المصدر الأصلي للتحقق العلمي.'
         try {
           await navigator.clipboard.writeText(text)
-          showToast('تم النسخ بنجاح')
+          showToast('تم النسخ مع معلومات المصدر')
         } catch (e) {
-          // fallback
           const ta = document.createElement('textarea')
           ta.value = text
           document.body.appendChild(ta)
