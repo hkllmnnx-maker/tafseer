@@ -2,13 +2,18 @@
 import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import {
   IconSearch, IconFilter, IconHash, IconBookOpen, IconArrowRightCircle,
-  IconQuote,
+  IconQuote, IconShield,
 } from '../icons'
 import { SURAHS } from '../../data/surahs'
 import { BOOKS, type TafseerSchool } from '../../data/books'
 import { AUTHORS } from '../../data/authors'
 import { search, type SearchFilters, type SearchResults } from '../../lib/search'
 import { highlightText, escapeHtml } from '../../lib/normalize'
+import {
+  SOURCE_TYPES, VERIFICATION_STATUSES,
+  getSourceTypeMeta, getVerificationMeta,
+} from '../../lib/scientific'
+import { SourceTypeBadge, VerificationBadge } from '../components/badges'
 
 const SCHOOLS: TafseerSchool[] = ['بالمأثور', 'بالرأي', 'فقهي', 'لغوي', 'بلاغي', 'معاصر', 'ميسر', 'موسوعي']
 
@@ -183,6 +188,49 @@ export const SearchPage = ({
               </div>
 
               <div class="filter-group">
+                <div class="filter-title">
+                  <span><IconQuote size={14} /> نوع المصدر</span>
+                </div>
+                <div class="filter-options">
+                  {SOURCE_TYPES.map(s => {
+                    const m = getSourceTypeMeta(s)
+                    return (
+                      <label class="filter-option" title={m.description}>
+                        <input
+                          type="checkbox" name="sourceTypes" value={s}
+                          checked={filters.sourceTypes?.includes(s)}
+                        />
+                        <span class="text-sm">{m.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <div class="filter-title">
+                  <span><IconShield size={14} /> حالة التحقق</span>
+                </div>
+                <div class="filter-options">
+                  {VERIFICATION_STATUSES.map(v => {
+                    const m = getVerificationMeta(v)
+                    return (
+                      <label class="filter-option" title={m.description}>
+                        <input
+                          type="checkbox" name="verificationStatuses" value={v}
+                          checked={filters.verificationStatuses?.includes(v)}
+                        />
+                        <span class="text-sm">{m.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <a href="/methodology" class="text-accent text-xs" style="display:block;margin-top:.4rem">
+                  ما معنى هذه الحالات؟ ↗
+                </a>
+              </div>
+
+              <div class="filter-group">
                 <button type="submit" class="btn btn-primary" style="width:100%">
                   تطبيق الفلاتر
                 </button>
@@ -224,6 +272,8 @@ export const SearchPage = ({
                         <span class="badge"><IconHash size={12} /> آية {item.ayah}</span>
                         <span class="badge badge-gold">{item.bookTitle}</span>
                         <span class="text-xs text-tertiary">— {item.authorName}</span>
+                        <SourceTypeBadge type={item.sourceType} />
+                        <VerificationBadge status={item.verificationStatus} />
                       </div>
                       {item.ayahText && (
                         <div class="result-ayah" dangerouslySetInnerHTML={{

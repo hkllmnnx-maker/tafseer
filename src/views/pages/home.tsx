@@ -10,9 +10,11 @@ import { BOOKS } from '../../data/books'
 import { AUTHORS } from '../../data/authors'
 import { CATEGORIES } from '../../data/categories'
 import { getStats } from '../../lib/search'
+import { getOverallCoverage } from '../../lib/coverage'
 
 export const HomePage = () => {
   const stats = getStats()
+  const coverage = getOverallCoverage()
   const featuredBooks = BOOKS.filter(b => b.featured).slice(0, 6)
   const popularAyahs = [
     { surah: 1, ayah: 1, label: 'الفاتحة - البسملة' },
@@ -104,6 +106,60 @@ export const HomePage = () => {
             <StatCard icon={<IconUser />} label="مؤلف ومفسر" value={stats.authorsCount} />
             <StatCard icon={<IconBookOpen />} label="سور القرآن" value={stats.surahsCount} />
             <StatCard icon={<IconQuote />} label="نص تفسير مفهرس" value={stats.tafseersCount} />
+          </div>
+        </div>
+      </section>
+
+      {/* Data Status / Coverage */}
+      <section class="section">
+        <div class="container">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">
+                <span class="icon-deco"><IconShield size={18} /></span>
+                حالة البيانات والتوثيق العلمي
+              </h2>
+              <span class="section-subtitle">شفافية كاملة حول التغطية الفعلية للقرآن وللتفاسير في القاعدة</span>
+            </div>
+            <a href="/methodology" class="btn btn-ghost btn-sm">
+              منهجيتنا <IconArrowRightCircle size={14} />
+            </a>
+          </div>
+
+          <div class="data-status-grid">
+            <div class="card data-status-card">
+              <div class="data-status-label">آيات لها نص متاح</div>
+              <div class="data-status-value">{coverage.availableAyahs.toLocaleString('ar-EG')} <span class="text-tertiary text-sm">/ {coverage.totalCanonicalAyahs.toLocaleString('ar-EG')}</span></div>
+              <div class="coverage-bar mt-2"><span style={`width:${coverage.ayahCoveragePercent}%`}></span></div>
+              <div class="text-sm text-tertiary mt-1">{coverage.ayahCoveragePercent}% من إجمالي القرآن</div>
+            </div>
+            <div class="card data-status-card">
+              <div class="data-status-label">آيات لها تفسير</div>
+              <div class="data-status-value">{coverage.ayahsWithTafseer.toLocaleString('ar-EG')} <span class="text-tertiary text-sm">/ {coverage.totalCanonicalAyahs.toLocaleString('ar-EG')}</span></div>
+              <div class="coverage-bar mt-2"><span style={`width:${coverage.tafseerCoveragePercent}%`}></span></div>
+              <div class="text-sm text-tertiary mt-1">{coverage.tafseerCoveragePercent}% من إجمالي القرآن</div>
+            </div>
+            <div class="card data-status-card">
+              <div class="data-status-label">سور فيها تفسير</div>
+              <div class="data-status-value">{coverage.surahsWithTafseer} <span class="text-tertiary text-sm">/ 114</span></div>
+              <div class="coverage-bar mt-2"><span style={`width:${(coverage.surahsWithTafseer/114*100).toFixed(1)}%`}></span></div>
+              <div class="text-sm text-tertiary mt-1">{((coverage.surahsWithTafseer/114)*100).toFixed(1)}% من السور</div>
+            </div>
+            <div class="card data-status-card">
+              <div class="data-status-label">إجمالي التفاسير المفهرسة</div>
+              <div class="data-status-value">{coverage.totalTafseerEntries.toLocaleString('ar-EG')}</div>
+              <div class="text-sm text-tertiary mt-2">
+                غالبها صياغات مختصرة بأسلوب الفريق العلمي. التحقق العلمي قيد التنفيذ.
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-4" style="background:var(--bg-secondary);padding:1rem;border-style:dashed">
+            <p style="line-height:1.85;margin:0">
+              <strong>تنويه شفاف:</strong> هذه القاعدة الأولية تحتوي على عيّنات وملخّصات وليست نقلًا حرفيًا من كل كتاب.
+              نعرض لك دائمًا حالة كل بطاقة (نوع المصدر / حالة التحقق) لتعرف ما يصلح للاستشهاد.
+              <a href="/methodology" class="text-accent">اقرأ المنهجية الكاملة ↗</a>
+            </p>
           </div>
         </div>
       </section>

@@ -1562,3 +1562,166 @@ p { color: var(--text-secondary); }
 
 /* تحسين سلاسة التمرير في صفحة القراءة */
 html { scroll-behavior: smooth; }
+
+/* ============== Scientific Verification Badges ============== */
+.tafseer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-top: .4rem;
+}
+.tafseer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .15rem .55rem;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 600;
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+/* Source-type variants */
+.badge-source-original { background: #d4ebde; color: #0f5c3e; border-color: rgba(15, 92, 62, 0.3); }
+.badge-source-summary { background: #e6f0fa; color: #1a5fb4; border-color: rgba(26, 95, 180, 0.3); }
+.badge-source-sample { background: #fff3e0; color: #b97a1a; border-color: rgba(185, 122, 26, 0.3); }
+.badge-source-review { background: #fde2e1; color: #b3261e; border-color: rgba(179, 38, 30, 0.3); }
+.badge-source-curated { background: #f5e8c8; color: #8a6628; border-color: rgba(138, 102, 40, 0.3); }
+/* Verification-status variants */
+.badge-verify-ok { background: #d4ebde; color: #0f5c3e; border-color: rgba(15, 92, 62, 0.35); }
+.badge-verify-partial { background: #fff3e0; color: #b97a1a; border-color: rgba(185, 122, 26, 0.35); }
+.badge-verify-none { background: #f0e6e6; color: #883333; border-color: rgba(136, 51, 51, 0.3); }
+.badge-verify-flag { background: #fde2e1; color: #b3261e; border-color: rgba(179, 38, 30, 0.35); }
+
+/* Dark theme tweaks */
+[data-theme="dark"] .badge-source-original { background: rgba(42, 153, 104, 0.2); color: #6fd1a4; border-color: rgba(42, 153, 104, 0.4); }
+[data-theme="dark"] .badge-source-summary { background: rgba(74, 144, 226, 0.18); color: #9ec5ee; border-color: rgba(74, 144, 226, 0.4); }
+[data-theme="dark"] .badge-source-sample { background: rgba(212, 168, 90, 0.18); color: #f0c97a; border-color: rgba(212, 168, 90, 0.4); }
+[data-theme="dark"] .badge-source-review { background: rgba(220, 80, 70, 0.18); color: #f59c95; border-color: rgba(220, 80, 70, 0.4); }
+[data-theme="dark"] .badge-source-curated { background: rgba(212, 168, 90, 0.15); color: #e0c685; border-color: rgba(212, 168, 90, 0.4); }
+[data-theme="dark"] .badge-verify-ok { background: rgba(42, 153, 104, 0.2); color: #6fd1a4; border-color: rgba(42, 153, 104, 0.4); }
+[data-theme="dark"] .badge-verify-partial { background: rgba(212, 168, 90, 0.18); color: #f0c97a; border-color: rgba(212, 168, 90, 0.4); }
+[data-theme="dark"] .badge-verify-none { background: rgba(150, 100, 100, 0.18); color: #d49b9b; border-color: rgba(150, 100, 100, 0.4); }
+[data-theme="dark"] .badge-verify-flag { background: rgba(220, 80, 70, 0.18); color: #f59c95; border-color: rgba(220, 80, 70, 0.4); }
+
+/* ============== Scientific Warnings & Disclaimer ============== */
+.scientific-warning {
+  margin: .5rem 1.5rem 0;
+  padding: .65rem .85rem;
+  border-radius: 8px;
+  background: #fff3e0;
+  color: #8a4a0a;
+  border-inline-start: 3px solid #b97a1a;
+  font-size: .85rem;
+  line-height: 1.7;
+}
+[data-theme="dark"] .scientific-warning {
+  background: rgba(212, 168, 90, 0.12);
+  color: #f0c97a;
+  border-inline-start-color: #d4a85a;
+}
+.scientific-disclaimer {
+  background: #f5e8c8;
+  color: #5a3f15;
+  border: 1px solid var(--border-gold);
+  border-inline-start: 4px solid var(--gold-primary);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  line-height: 1.85;
+}
+[data-theme="dark"] .scientific-disclaimer {
+  background: rgba(212, 168, 90, 0.1);
+  color: #e0c685;
+  border-color: rgba(212, 168, 90, 0.4);
+  border-inline-start-color: #d4a85a;
+}
+
+.partial-data-notice {
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  border: 1px dashed var(--border-default);
+  color: var(--text-secondary);
+  line-height: 1.85;
+  font-size: .95rem;
+}
+
+.source-citation {
+  font-size: .82rem;
+  color: var(--text-tertiary);
+  padding-top: .5rem;
+  border-top: 1px dashed var(--border-subtle);
+  margin-top: .3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  align-items: center;
+}
+.source-citation .text-muted { color: var(--text-muted); font-weight: 600; }
+
+/* ============== Coverage Bar / Indicators ============== */
+.coverage-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.coverage-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-tertiary), var(--accent-primary));
+  border-radius: 999px;
+  transition: width .4s ease;
+  min-width: 2px;
+}
+.cov-complete { background: #d4ebde; color: #0f5c3e; border-color: rgba(15, 92, 62, 0.3); }
+.cov-partial { background: #f5e8c8; color: #8a6628; border-color: rgba(138, 102, 40, 0.3); }
+.cov-minimal { background: #fff3e0; color: #b97a1a; border-color: rgba(185, 122, 26, 0.3); }
+.cov-empty { background: var(--bg-tertiary); color: var(--text-muted); border-color: var(--border-default); }
+[data-theme="dark"] .cov-complete { background: rgba(42, 153, 104, 0.2); color: #6fd1a4; border-color: rgba(42, 153, 104, 0.4); }
+[data-theme="dark"] .cov-partial { background: rgba(212, 168, 90, 0.15); color: #e0c685; border-color: rgba(212, 168, 90, 0.4); }
+[data-theme="dark"] .cov-minimal { background: rgba(212, 168, 90, 0.18); color: #f0c97a; border-color: rgba(212, 168, 90, 0.4); }
+[data-theme="dark"] .cov-empty { background: var(--bg-tertiary); color: var(--text-muted); }
+
+.coverage-card {
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* ============== Data-status grid (home page) ============== */
+.data-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.data-status-card { padding: 1.25rem; }
+.data-status-label { font-size: .9rem; color: var(--text-tertiary); margin-bottom: .35rem; }
+.data-status-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+  font-feature-settings: "tnum";
+}
+[data-theme="dark"] .data-status-value { color: var(--accent-tertiary); }
+
+/* ============== Methodology page grid ============== */
+.methodology-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: .85rem;
+  margin-top: 1rem;
+}
+.methodology-item { padding: 1rem; }
+
+/* ============== Search filter group: scientific filters ============== */
+.filter-group .filter-title small { color: var(--text-muted); font-weight: 400; font-size: .75rem; }
+.filter-info-text { font-size: .78rem; color: var(--text-muted); padding: .25rem 0 .5rem; line-height: 1.6; }
+
+/* ============== Result item: scientific badges line ============== */
+.result-item .result-meta .tafseer-badge { font-size: .7rem; }

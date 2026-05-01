@@ -5,6 +5,23 @@ import { BOOKS, type TafseerSchool } from '../data/books'
 import { AUTHORS } from '../data/authors'
 import { TAFSEERS } from '../data/tafseers'
 import { normalizeArabic, fuzzyMatch } from './normalize'
+import {
+  SOURCE_TYPES, VERIFICATION_STATUSES,
+  type SourceType, type VerificationStatus,
+} from './scientific'
+
+// ============== Hard limits enforced by the search engine ==============
+export const MAX_QUERY_LENGTH = 200
+export const MAX_PER_PAGE = 50
+export const MIN_PER_PAGE = 5
+export const MAX_PAGE = 1000
+const ALLOWED_SORTS = new Set(['relevance', 'oldest', 'newest', 'book', 'author'])
+const ALLOWED_SEARCH_IN = new Set(['tafseer', 'ayah', 'all'])
+const ALLOWED_SCHOOLS = new Set<TafseerSchool>([
+  'بالمأثور', 'بالرأي', 'فقهي', 'لغوي', 'بلاغي', 'معاصر', 'ميسر', 'موسوعي',
+])
+const ALLOWED_SOURCE_TYPES = new Set<SourceType>(SOURCE_TYPES as readonly SourceType[])
+const ALLOWED_VERIFICATION = new Set<VerificationStatus>(VERIFICATION_STATUSES as readonly VerificationStatus[])
 
 export interface SearchFilters {
   q?: string
@@ -14,6 +31,8 @@ export interface SearchFilters {
   bookIds?: string[]
   authorIds?: string[]
   schools?: TafseerSchool[]
+  sourceTypes?: SourceType[]
+  verificationStatuses?: VerificationStatus[]
   centuryFrom?: number
   centuryTo?: number
   exactMatch?: boolean
@@ -22,6 +41,42 @@ export interface SearchFilters {
   sort?: 'relevance' | 'oldest' | 'newest' | 'book' | 'author'
   page?: number
   perPage?: number
+}
+
+/** Strip / clamp filters into safe values. Always call this before passing to search(). */
+export function sanitizeFilters(input: Partial<SearchFilters>): SearchFilters {
+  const f: SearchFilters = {}
+  f.q = (input.q || '').toString().slice(0, MAX_QUERY_LENGTH)
+  f.surah = clampInt(input.surah, 1, 114)
+  f.ayahFrom = clampInt(input.ayahFrom, 1, 286)
+  f.ayahTo = clampInt(input.ayahTo, 1, 286)
+  f.bookIds = uniqueStrings(input.bookIds, 30)
+  f.authorIds = uniqueStrings(input.authorIds, 30)
+  f.schools = (input.schools || []).filter(s => ALLOWED_SCHOOLS.has(s)) as TafseerSchool[]
+  f.sourceTypes = (input.sourceTypes || []).filter(s => ALLOWED_SOURCE_TYPES.has(s as SourceType)) as SourceType[]
+  f.verificationStatuses = (input.verificationStatuses || [])
+    .filter(s => ALLOWED_VERIFICATION.has(s as VerificationStatus)) as VerificationStatus[]
+  f.centuryFrom = clampInt(input.centuryFrom, 1, 15)
+  f.centuryTo = clampInt(input.centuryTo, 1, 15)
+  f.exactMatch = !!input.exactMatch
+  f.fuzzy = !!input.fuzzy
+  f.searchIn = ALLOWED_SEARCH_IN.has(input.searchIn as string) ? input.searchIn : 'all'
+  f.sort = ALLOWED_SORTS.has(input.sort as string) ? input.sort : 'relevance'
+  f.page = clampInt(input.page, 1, MAX_PAGE) || 1
+  f.perPage = clampInt(input.perPage, MIN_PER_PAGE, MAX_PER_PAGE) || 10
+  return f
+}
+
+function clampInt(v: any, min: number, max: number): number | undefined {
+  if (v == null || v === '') return undefined
+  const n = parseInt(String(v), 10)
+  if (!Number.isFinite(n)) return undefined
+  if (n < min || n > max) return undefined
+  return n
+}
+function uniqueStrings(arr: string[] | undefined, max: number): string[] {
+  if (!arr || !arr.length) return []
+  return Array.from(new Set(arr.filter(s => typeof s === 'string' && s.length > 0 && s.length < 64))).slice(0, max)
 }
 
 export interface SearchResultItem {
@@ -37,6 +92,17 @@ export interface SearchResultItem {
   ayahText: string
   snippet: string
   relevance: number
+  // Scientific metadata propagated to the UI for badges
+  sourceType: SourceType
+  verificationStatus: VerificationStatus
+  isOriginalText: boolean
+  sourceName?: string
+  edition?: string
+  volume?: number
+  page?: number
+  sourceUrl?: string
+  reviewerNote?: string
+  ayahMissing?: boolean
 }
 
 export interface SearchResults {
@@ -88,6 +154,14 @@ export function search(filters: SearchFilters): SearchResults {
     if (filters.surah && t.surah !== filters.surah) return false
     if (filters.ayahFrom && t.ayah < filters.ayahFrom) return false
     if (filters.ayahTo && t.ayah > filters.ayahTo) return false
+    if (filters.sourceTypes?.length) {
+      const st = (t.sourceType || 'sample') as SourceType
+      if (!filters.sourceTypes.includes(st)) return false
+    }
+    if (filters.verificationStatuses?.length) {
+      const vs = (t.verificationStatus || 'unverified') as VerificationStatus
+      if (!filters.verificationStatuses.includes(vs)) return false
+    }
     return true
   })
 
@@ -149,6 +223,16 @@ export function search(filters: SearchFilters): SearchResults {
       ayahText,
       snippet: makeSnippet(t.text, q, SNIPPET_LEN),
       relevance,
+      sourceType: (t.sourceType || 'sample') as SourceType,
+      verificationStatus: (t.verificationStatus || 'unverified') as VerificationStatus,
+      isOriginalText: !!t.isOriginalText,
+      sourceName: t.sourceName || t.source,
+      edition: t.edition,
+      volume: t.volume,
+      page: t.page,
+      sourceUrl: t.sourceUrl,
+      reviewerNote: t.reviewerNote,
+      ayahMissing: !ayahObj,
     }
   })
 

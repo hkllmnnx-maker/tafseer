@@ -17,8 +17,12 @@ import { AboutPage } from './views/pages/about'
 import { BookmarksPage } from './views/pages/bookmarks'
 import { HistoryPage } from './views/pages/history'
 import { DashboardPage } from './views/pages/dashboard'
+import { MethodologyPage } from './views/pages/methodology'
 
-import { search, suggest, getStats, getDetailedStats, type SearchFilters } from './lib/search'
+import {
+  search, suggest, getStats, getDetailedStats, sanitizeFilters,
+  MAX_QUERY_LENGTH, type SearchFilters,
+} from './lib/search'
 import { SURAHS, getSurahByNumber } from './data/surahs'
 import { BOOKS } from './data/books'
 import { AUTHORS } from './data/authors'
@@ -26,6 +30,11 @@ import { CATEGORIES } from './data/categories'
 import { TAFSEERS, getTafseersByAyah } from './data/tafseers'
 import { AYAHS, getAyah } from './data/ayahs'
 import type { TafseerSchool } from './data/books'
+import type { SourceType, VerificationStatus } from './lib/scientific'
+import {
+  ayahExistsInQuran, ayahHasText, ayahHasTafseer,
+  getSurahCoverage, getOverallCoverage, getAllSurahCoverages,
+} from './lib/coverage'
 
 const app = new Hono()
 
@@ -94,43 +103,52 @@ function parseArrayParam(c: any, key: string): string[] {
 app.get('/', c => c.render(<HomePage />, { title: 'الرئيسية' } as any))
 
 app.get('/search', c => {
-  const q = c.req.query('q') || ''
-  const surah = parseIntSafe(c.req.query('surah'))
-  const ayahFrom = parseIntSafe(c.req.query('ayahFrom'))
-  const ayahTo = parseIntSafe(c.req.query('ayahTo'))
-  const bookIds = parseArrayParam(c, 'bookIds')
-  const authorIds = parseArrayParam(c, 'authorIds')
-  const schools = parseArrayParam(c, 'schools') as TafseerSchool[]
-  const centuryFrom = parseIntSafe(c.req.query('centuryFrom'))
-  const centuryTo = parseIntSafe(c.req.query('centuryTo'))
-  const exactMatch = c.req.query('exactMatch') === '1'
-  const fuzzy = c.req.query('fuzzy') === '1'
-  const searchIn = (c.req.query('searchIn') || 'all') as 'all' | 'tafseer' | 'ayah'
-  const sort = (c.req.query('sort') || 'relevance') as any
-  const page = parseIntSafe(c.req.query('page')) || 1
-
-  const filters: SearchFilters = {
-    q, surah, ayahFrom, ayahTo, bookIds, authorIds, schools,
-    centuryFrom, centuryTo, exactMatch, fuzzy, searchIn, sort, page,
+  const filters = sanitizeFilters({
+    q: c.req.query('q'),
+    surah: c.req.query('surah') as any,
+    ayahFrom: c.req.query('ayahFrom') as any,
+    ayahTo: c.req.query('ayahTo') as any,
+    bookIds: parseArrayParam(c, 'bookIds'),
+    authorIds: parseArrayParam(c, 'authorIds'),
+    schools: parseArrayParam(c, 'schools') as TafseerSchool[],
+    sourceTypes: parseArrayParam(c, 'sourceTypes') as SourceType[],
+    verificationStatuses: parseArrayParam(c, 'verificationStatuses') as VerificationStatus[],
+    centuryFrom: c.req.query('centuryFrom') as any,
+    centuryTo: c.req.query('centuryTo') as any,
+    exactMatch: c.req.query('exactMatch') === '1',
+    fuzzy: c.req.query('fuzzy') === '1',
+    searchIn: c.req.query('searchIn') as any,
+    sort: c.req.query('sort') as any,
+    page: c.req.query('page') as any,
     perPage: 10,
-  }
+  })
   const results = search(filters)
   return c.render(
     <SearchPage filters={filters} results={results} />,
-    { title: q ? `البحث عن: ${q}` : 'البحث المتقدم' } as any,
+    { title: filters.q ? `البحث عن: ${filters.q}` : 'البحث المتقدم' } as any,
   )
 })
 
 app.get('/ayah/:surah/:ayah', c => {
   const surah = parseIntSafe(c.req.param('surah')) || 0
   const ayah = parseIntSafe(c.req.param('ayah')) || 0
-  const q = c.req.query('q') || ''
+  const q = (c.req.query('q') || '').slice(0, MAX_QUERY_LENGTH)
   const surahData = getSurahByNumber(surah)
+
+  // Phase: Quran coverage - return 404 for verses that don't exist in the Qur'an at all
+  if (!surahData || !ayahExistsInQuran(surah, ayah)) {
+    c.status(404)
+    return c.render(
+      <AyahPage surah={surah} ayah={ayah} q={q} notFound={true} />,
+      { title: 'آية غير موجودة' } as any,
+    )
+  }
+
   return c.render(
     <AyahPage surah={surah} ayah={ayah} q={q} />,
     {
-      title: surahData ? `سورة ${surahData.name} - آية ${ayah}` : 'الآية',
-      description: surahData ? `تفسير الآية ${ayah} من سورة ${surahData.name} من عدة كتب تفسير.` : undefined,
+      title: `سورة ${surahData.name} - آية ${ayah}`,
+      description: `تفسير الآية ${ayah} من سورة ${surahData.name} من عدة كتب تفسير.`,
     } as any,
   )
 })
@@ -206,6 +224,13 @@ app.get('/read/:n', c => {
 })
 
 app.get('/about', c => c.render(<AboutPage />, { title: 'عن التطبيق' } as any))
+app.get('/methodology', c => c.render(
+  <MethodologyPage />,
+  {
+    title: 'منهجية التوثيق العلمي',
+    description: 'كيف نوثّق نصوص التفسير ونميّز بين النصوص الأصلية والملخّصات والعيّنات.',
+  } as any,
+))
 
 app.get('/bookmarks', c => c.render(
   <BookmarksPage />,

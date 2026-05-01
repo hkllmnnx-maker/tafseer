@@ -1,6 +1,9 @@
-// نصوص التفاسير - بيانات مرجعية مستقاة بأسلوب موجز من كتب التفسير المعروفة
-// ملاحظة مهمة: هذه نصوص مختصرة بصياغة الفريق العلمي للتطبيق، مستفادة من معاني التفاسير المذكورة،
-// وليست نقلًا حرفيًا، ولا تُغني عن مراجعة الكتب الأصلية. المصادر مذكورة لكل بطاقة.
+// نصوص التفاسير - بيانات مرجعية مستقاة بأسلوب موجز من كتب التفسير المعروفة.
+// ملاحظة مهمة: غالب النصوص في هذه القاعدة الأولية صياغات مختصرة بأسلوب الفريق العلمي،
+// مستفادة من معاني التفاسير المذكورة، وليست نقلًا حرفيًا، ولا تُغني عن مراجعة الكتب الأصلية.
+// كل بطاقة تحمل حقول التوثيق العلمي (sourceType / verificationStatus) للوضوح أمام القارئ.
+
+import type { SourceType, VerificationStatus } from '../lib/scientific'
 
 export interface TafseerEntry {
   id: string
@@ -8,11 +11,30 @@ export interface TafseerEntry {
   surah: number
   ayah: number
   text: string
-  // مراجع اختيارية
+  // ============ Scientific verification metadata ============
+  /** نوع المصدر: نص أصلي / ملخّص / عيّنة / يحتاج مراجعة / مجموع */
+  sourceType?: SourceType
+  /** حالة التحقق العلمي */
+  verificationStatus?: VerificationStatus
+  /** اسم الكتاب أو المصدر المنقول منه */
+  sourceName?: string
+  /** الطبعة (مثال: «طبعة دار هجر، 2003»). */
+  edition?: string
+  /** رقم المجلد */
   volume?: number
+  /** رقم الصفحة في الطبعة المعتمدة */
   page?: number
+  /** رابط الصفحة على موقع المصدر إن وُجد */
+  sourceUrl?: string
+  /** ملاحظة المراجع العلمي (سبب الحاجة لمراجعة، تنبيه على إشكال، …) */
+  reviewerNote?: string
+  /** هل النص نقل حرفي للأصل؟ (مكافئ لـ sourceType==='original-text') */
+  isOriginalText?: boolean
+  // ============ Legacy fields (kept for backward-compat) ============
+  /** اسم الكتاب الكامل بصيغة عرض (legacy) */
   source?: string
-  isSample?: boolean // هل هي عينة تجريبية؟
+  /** هل هي عيّنة تجريبية؟ (legacy — استخدم sourceType='sample') */
+  isSample?: boolean
 }
 
 export const TAFSEERS: TafseerEntry[] = [
@@ -599,8 +621,40 @@ export const TAFSEERS: TafseerEntry[] = [
   },
 ]
 
+// ============== Backfill scientific metadata for legacy entries ==============
+// Every entry in this initial dataset is a *summary* prepared by the editorial team.
+// We treat them as 'partially-verified' because the source name is cited, but no
+// concrete edition / page / URL is provided. Real verified rows (loaded via the
+// importer) override these defaults.
+for (const t of TAFSEERS) {
+  if (!t.sourceType) {
+    t.sourceType = t.isSample ? 'sample' : 'summary'
+  }
+  if (!t.verificationStatus) {
+    if (t.sourceType === 'sample') t.verificationStatus = 'unverified'
+    else if (t.source && (t.volume || t.page)) t.verificationStatus = 'verified'
+    else if (t.source) t.verificationStatus = 'partially-verified'
+    else t.verificationStatus = 'unverified'
+  }
+  if (!t.sourceName && t.source) t.sourceName = t.source
+  if (t.isOriginalText === undefined) t.isOriginalText = t.sourceType === 'original-text'
+}
+
 export const getTafseersByAyah = (surah: number, ayah: number) =>
   TAFSEERS.filter(t => t.surah === surah && t.ayah === ayah)
 
 export const getTafseersByBook = (bookId: string) =>
   TAFSEERS.filter(t => t.bookId === bookId)
+
+/** Append entries at runtime (used by importers / future data sources). */
+export function addTafseerEntries(entries: TafseerEntry[]): number {
+  let added = 0
+  const seen = new Set(TAFSEERS.map(t => t.id))
+  for (const e of entries) {
+    if (!e.id || seen.has(e.id)) continue
+    TAFSEERS.push(e)
+    seen.add(e.id)
+    added++
+  }
+  return added
+}

@@ -11,28 +11,54 @@ import { getTafseersByAyah } from '../../data/tafseers'
 import { BOOKS } from '../../data/books'
 import { AUTHORS } from '../../data/authors'
 import { highlightText, escapeHtml } from '../../lib/normalize'
+import {
+  SourceTypeBadge, VerificationBadge, VerificationWarning, SourceCitation,
+  ScientificDisclaimer,
+} from '../components/badges'
+import { getSurahCoverage, ayahHasText } from '../../lib/coverage'
 
 export const AyahPage = ({
   surah,
   ayah,
   q = '',
+  notFound = false,
 }: {
   surah: number
   ayah: number
   q?: string
+  notFound?: boolean
 }) => {
   const surahData = getSurahByNumber(surah)
   const ayahData = getAyah(surah, ayah)
   const tafseers = getTafseersByAyah(surah, ayah)
 
-  if (!surahData) {
+  if (notFound || !surahData) {
     return (
       <>
         <Header />
         <main class="container" style="padding:3rem 0">
+          <Breadcrumbs items={[
+            { label: 'الرئيسية', href: '/' },
+            { label: 'السور', href: '/surahs' },
+            { label: 'آية غير موجودة' },
+          ]} />
           <div class="empty-state card">
-            <h3>السورة غير موجودة</h3>
-            <p>تأكد من رقم السورة. <a href="/" class="text-accent">العودة للرئيسية</a></p>
+            <div class="empty-icon"><IconQuote size={28} /></div>
+            <h3>الآية المطلوبة غير موجودة في القرآن</h3>
+            <p style="line-height:1.9">
+              {surahData ? (
+                <>السورة <strong>{surahData.name}</strong> تحتوي على {surahData.ayahCount} آية فقط، والرقم <strong>{ayah}</strong> خارج هذا النطاق.</>
+              ) : (
+                <>تأكد من رقم السورة (1 إلى 114) ورقم الآية.</>
+              )}
+            </p>
+            <div class="flex gap-2 mt-3" style="justify-content:center;flex-wrap:wrap">
+              <a href="/" class="btn btn-primary btn-sm">العودة للرئيسية</a>
+              <a href="/surahs" class="btn btn-secondary btn-sm">قائمة السور</a>
+              {surahData ? (
+                <a href={`/surahs/${surahData.number}`} class="btn btn-secondary btn-sm">سورة {surahData.name}</a>
+              ) : null}
+            </div>
           </div>
         </main>
         <Footer />
@@ -42,6 +68,8 @@ export const AyahPage = ({
 
   const prevAyah = ayah > 1 ? { surah, ayah: ayah - 1 } : null
   const nextAyah = ayah < surahData.ayahCount ? { surah, ayah: ayah + 1 } : null
+  const coverage = getSurahCoverage(surah)
+  const hasAnyWarning = tafseers.some(t => t.verificationStatus !== 'verified')
 
   return (
     <>
@@ -93,8 +121,9 @@ export const AyahPage = ({
               <span class="ayah-number-circle">{toArabicNumber(ayah)}</span>
             </div>
           ) : (
-            <div class="text-tertiary">
-              نص الآية غير متوفر في العينة الحالية - لكن يمكنك استخدام الفلاتر للوصول للتفاسير المتاحة.
+            <div class="partial-data-notice" role="note">
+              <strong>تنبيه:</strong> نص هذه الآية غير متوفّر في القاعدة الحالية (نحن نوسّع التغطية تدريجيًا).
+              يمكنك استعراض التفاسير المرتبطة بها في الأسفل.
             </div>
           )}
 
@@ -144,6 +173,8 @@ export const AyahPage = ({
               </div>
             </div>
 
+            {hasAnyWarning ? <ScientificDisclaimer /> : null}
+
             <div class="tafseer-list" id="tafseer-list">
               {tafseers.map(t => {
                 const book = BOOKS.find(b => b.id === t.bookId)!
@@ -163,6 +194,10 @@ export const AyahPage = ({
                             {author.name} · ت {author.deathYear}هـ
                             {' '}· {book.schools.join('، ')}
                           </div>
+                          <div class="tafseer-badges">
+                            <SourceTypeBadge type={t.sourceType} />
+                            <VerificationBadge status={t.verificationStatus} />
+                          </div>
                         </div>
                       </div>
                       <div class="tafseer-actions">
@@ -177,17 +212,23 @@ export const AyahPage = ({
                         </a>
                       </div>
                     </header>
+                    <VerificationWarning status={t.verificationStatus} note={t.reviewerNote} />
                     <div
                       class="tafseer-body"
                       id={`tafseer-body-${t.id}`}
                       data-collapsible="true"
                       dangerouslySetInnerHTML={{ __html: highlightText(t.text, q) }}
                     />
-                    {t.source ? (
-                      <div style="padding:0 1.5rem 1rem;font-size:.8rem;color:var(--text-muted)">
-                        المصدر: {t.source}
-                      </div>
-                    ) : null}
+                    <div style="padding:0 1.5rem 1rem">
+                      <SourceCitation
+                        bookTitle={book.title}
+                        sourceName={t.sourceName || t.source}
+                        edition={t.edition}
+                        volume={t.volume}
+                        page={t.page}
+                        sourceUrl={t.sourceUrl}
+                      />
+                    </div>
                   </article>
                 )
               })}

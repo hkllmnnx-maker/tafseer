@@ -4,6 +4,7 @@ import { IconBookOpen, IconArrowRightCircle, IconHash, IconSearch } from '../ico
 import { SURAHS, getSurahByNumber } from '../../data/surahs'
 import { getAyahsBySurah } from '../../data/ayahs'
 import { TAFSEERS } from '../../data/tafseers'
+import { getSurahCoverage, completenessLabel, completenessClass } from '../../lib/coverage'
 
 export const SurahsPage = ({ q = '', type = '' }: { q?: string; type?: string }) => {
   let surahs = [...SURAHS]
@@ -39,7 +40,7 @@ export const SurahsPage = ({ q = '', type = '' }: { q?: string; type?: string })
 
         <div class="feature-grid">
           {surahs.map(s => {
-            const indexed = TAFSEERS.filter(t => t.surah === s.number).length
+            const cov = getSurahCoverage(s.number)!
             return (
               <a href={`/surahs/${s.number}`} class="feature-card" style="text-decoration:none;display:block">
                 <div class="flex items-center gap-3 mb-2">
@@ -52,7 +53,13 @@ export const SurahsPage = ({ q = '', type = '' }: { q?: string; type?: string })
                 <div class="flex flex-wrap gap-2">
                   <span class="badge">{s.type}</span>
                   <span class="badge badge-outline"><IconHash size={11} /> {s.ayahCount} آية</span>
-                  {indexed > 0 ? <span class="badge badge-gold">{indexed} تفسير</span> : null}
+                  {cov.tafseersCount > 0 ? <span class="badge badge-gold">{cov.tafseersCount} تفسير</span> : null}
+                  <span class={`badge ${completenessClass(cov.completeness)}`} title={`التغطية: ${cov.tafseerCoveragePercent}% من آيات السورة`}>
+                    {completenessLabel(cov.completeness)}
+                  </span>
+                </div>
+                <div class="coverage-bar mt-2" aria-label={`نسبة التغطية ${cov.tafseerCoveragePercent}%`}>
+                  <span style={`width:${Math.min(100, cov.tafseerCoveragePercent)}%`}></span>
                 </div>
               </a>
             )
@@ -104,6 +111,22 @@ export const SurahDetailPage = ({ surahNumber }: { surahNumber: number }) => {
               مقارنة تفاسير الآية الأولى
             </a>
           </div>
+          {(() => {
+            const cov = getSurahCoverage(surah.number)!
+            return (
+              <div class="coverage-card mt-4" aria-label="نسبة تغطية السورة">
+                <div class="flex flex-wrap gap-3" style="justify-content:center">
+                  <span class="badge badge-outline">آيات متاحة: <strong>{cov.availableAyahs}</strong> / {cov.totalAyahs}</span>
+                  <span class="badge badge-outline">آيات لها تفسير: <strong>{cov.ayahsWithTafseer}</strong></span>
+                  <span class="badge badge-outline">إجمالي التفاسير: <strong>{cov.tafseersCount}</strong></span>
+                  <span class={`badge ${completenessClass(cov.completeness)}`}>{completenessLabel(cov.completeness)} · {cov.tafseerCoveragePercent}%</span>
+                </div>
+                <div class="coverage-bar mt-3" aria-hidden="true">
+                  <span style={`width:${Math.min(100, cov.tafseerCoveragePercent)}%`}></span>
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {ayahs.length > 0 ? (

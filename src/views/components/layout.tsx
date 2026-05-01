@@ -116,13 +116,18 @@ export const Footer = () => (
             <li><a href="/bookmarks">المفضلة</a></li>
             <li><a href="/history">سجل التصفح</a></li>
             <li><a href="/dashboard">لوحة الإحصاءات</a></li>
+            <li><a href="/methodology">منهجية التوثيق العلمي</a></li>
             <li><a href="/about">عن التطبيق</a></li>
           </ul>
         </div>
         <div class="footer-col">
-          <h4>تنبيه</h4>
+          <h4>تنبيه علمي</h4>
           <p class="text-tertiary text-sm" style="line-height:1.8">
-            النصوص المعروضة معاني مستفادة من كتب التفسير المذكورة وقد تكون عينة، يجب الرجوع إلى الأصل عند الاحتجاج.
+            غالب نصوص هذه القاعدة الأولية صياغات مختصرة بأسلوب الفريق العلمي،
+            مستفادة من المصادر المذكورة، وليست نقلًا حرفيًا. يجب الرجوع إلى الأصل عند الاحتجاج.
+          </p>
+          <p class="text-sm mt-2">
+            <a href="/methodology" class="text-accent">اقرأ منهجيتنا الكاملة ↗</a>
           </p>
         </div>
       </div>
