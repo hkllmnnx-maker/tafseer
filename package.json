@@ -8,7 +8,12 @@
     "preview": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
     "deploy": "npm run build && wrangler pages deploy dist",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true"
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
+    "verify:data": "node scripts/verify-data.mjs",
+    "validate:import": "node scripts/importers/validate-import.mjs",
+    "validate:samples": "node scripts/importers/validate-import.mjs fixtures/import-samples/valid-sample.json --dry-run",
+    "db:migrate:local": "wrangler d1 migrations apply tafseer-production --local",
+    "db:migrate:prod": "wrangler d1 migrations apply tafseer-production"
   },
   "dependencies": {
     "hono": "^4.12.12"

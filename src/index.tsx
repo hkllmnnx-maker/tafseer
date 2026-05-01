@@ -436,12 +436,17 @@ app.get('/robots.txt', c => {
 })
 app.get('/sitemap.xml', c => {
   const base = new URL('/', c.req.url).toString().replace(/\/$/, '')
+  // نُدرج فقط الآيات الموجودة في العينة (لا نزعم تغطية القرآن كاملاً).
+  // كذلك نضمّن صفحة /methodology و /read/:n للسور المغطّاة.
+  const surahsWithAyahs = new Set(AYAHS.map(a => a.surah))
   const urls: string[] = [
-    '/', '/search', '/books', '/authors', '/categories', '/compare', '/surahs', '/about',
+    '/', '/search', '/books', '/authors', '/categories', '/compare',
+    '/surahs', '/about', '/methodology',
     ...BOOKS.map(b => `/books/${b.id}`),
     ...AUTHORS.map(a => `/authors/${a.id}`),
     ...CATEGORIES.map(c2 => `/categories/${c2.id}`),
     ...SURAHS.map(s => `/surahs/${s.number}`),
+    ...Array.from(surahsWithAyahs).sort((a, b) => a - b).map(n => `/read/${n}`),
     ...AYAHS.map(a => `/ayah/${a.surah}/${a.number}`),
   ]
   const xml =

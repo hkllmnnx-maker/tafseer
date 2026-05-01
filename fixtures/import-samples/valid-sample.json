@@ -1,0 +1,44 @@
+[
+  {
+    "id": "imp-saadi-1-1",
+    "bookId": "saadi",
+    "surah": 1,
+    "ayah": 1,
+    "text": "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ — أبتدئ بكل اسم لله تعالى، لأن لفظ (اسم) مفرد مضاف، فيعمّ جميع الأسماء الحسنى.",
+    "sourceType": "summary",
+    "verificationStatus": "partially-verified",
+    "sourceName": "تيسير الكريم الرحمن للسعدي",
+    "edition": "مؤسسة الرسالة، 2002",
+    "volume": 1,
+    "page": 39,
+    "sourceUrl": "https://shamela.ws/book/23631/40",
+    "isOriginalText": false,
+    "reviewerNote": "مختصر بصياغة الفريق، يحتاج مراجعة لغوية نهائية."
+  },
+  {
+    "id": "imp-tabari-1-2",
+    "bookId": "tabari",
+    "surah": 1,
+    "ayah": 2,
+    "text": "الحمد لله رب العالمين — قال الطبري: الحمد كلمة كل شاكر لله على نعمه، فحَمدُ الله نفسَه إخبار منه عن نفسه أنه المستحق على عباده الحمد.",
+    "sourceType": "original-text",
+    "verificationStatus": "verified",
+    "sourceName": "جامع البيان عن تأويل آي القرآن",
+    "edition": "دار هجر، 2001",
+    "volume": 1,
+    "page": 135,
+    "sourceUrl": "https://shamela.ws/book/7038",
+    "isOriginalText": true
+  },
+  {
+    "id": "imp-jalalayn-2-21",
+    "bookId": "jalalayn",
+    "surah": 2,
+    "ayah": 21,
+    "text": "يا أيها الناس اعبدوا ربكم — أمر بإفراد الله بالعبادة، فهو الذي خلقكم والذين من قبلكم لتتقوا عذابه.",
+    "sourceType": "summary",
+    "verificationStatus": "verified",
+    "sourceName": "تفسير الجلالين",
+    "isOriginalText": false
+  }
+]
