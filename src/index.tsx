@@ -15,8 +15,9 @@ import { SurahsPage, SurahDetailPage } from './views/pages/surahs'
 import { AboutPage } from './views/pages/about'
 import { BookmarksPage } from './views/pages/bookmarks'
 import { HistoryPage } from './views/pages/history'
+import { DashboardPage } from './views/pages/dashboard'
 
-import { search, suggest, getStats, type SearchFilters } from './lib/search'
+import { search, suggest, getStats, getDetailedStats, type SearchFilters } from './lib/search'
 import { SURAHS, getSurahByNumber } from './data/surahs'
 import { BOOKS } from './data/books'
 import { AUTHORS } from './data/authors'
@@ -178,8 +179,41 @@ app.get('/history', c => c.render(
   } as any,
 ))
 
+app.get('/dashboard', c => c.render(
+  <DashboardPage />,
+  {
+    title: 'لوحة الإحصاءات',
+    description: 'نظرة شاملة على محتوى التطبيق: الكتب، المؤلفون، المدارس التفسيرية، توزيع القرون، والسور الأكثر تغطية.',
+  } as any,
+))
+
 // ============== JSON API ==============
 app.get('/api/stats', c => c.json({ ok: true, data: getStats() }))
+app.get('/api/stats/detailed', c => c.json({ ok: true, data: getDetailedStats() }))
+
+// ============== JSON Export Endpoints ==============
+function jsonExport(c: any, filename: string, payload: any) {
+  c.header('Content-Type', 'application/json; charset=utf-8')
+  c.header('Content-Disposition', `attachment; filename="${filename}"`)
+  c.header('Cache-Control', 'no-store')
+  return c.body(JSON.stringify(payload, null, 2))
+}
+app.get('/api/export/all', c => jsonExport(c, 'tafseer-all.json', {
+  exportedAt: new Date().toISOString(),
+  surahs: SURAHS,
+  books: BOOKS,
+  authors: AUTHORS,
+  categories: CATEGORIES,
+  ayahs: AYAHS,
+  tafseers: TAFSEERS,
+  stats: getStats(),
+}))
+app.get('/api/export/books', c => jsonExport(c, 'tafseer-books.json', BOOKS))
+app.get('/api/export/authors', c => jsonExport(c, 'tafseer-authors.json', AUTHORS))
+app.get('/api/export/surahs', c => jsonExport(c, 'tafseer-surahs.json', SURAHS))
+app.get('/api/export/ayahs', c => jsonExport(c, 'tafseer-ayahs.json', AYAHS))
+app.get('/api/export/tafseers', c => jsonExport(c, 'tafseer-tafseers.json', TAFSEERS))
+app.get('/api/export/categories', c => jsonExport(c, 'tafseer-categories.json', CATEGORIES))
 app.get('/api/surahs', c => c.json({ ok: true, data: SURAHS }))
 app.get('/api/surahs/:n', c => {
   const n = parseIntSafe(c.req.param('n')) || 0

@@ -2,6 +2,7 @@
 import {
   IconSearch, IconBookOpen, IconLayers, IconCompare, IconHome,
   IconMenu, IconMoon, IconSun, IconHash, IconBook, IconBookmark, IconCalendar,
+  IconDatabase,
 } from '../icons'
 
 export const Header = ({ active }: { active?: string }) => (
@@ -75,6 +76,9 @@ export const Header = ({ active }: { active?: string }) => (
       <a href="/history" class={`nav-link ${active === 'history' ? 'active' : ''}`}>
         <IconCalendar size={18} /> سجل التصفح
       </a>
+      <a href="/dashboard" class={`nav-link ${active === 'dashboard' ? 'active' : ''}`}>
+        <IconDatabase size={18} /> لوحة الإحصاءات
+      </a>
     </div>
   </header>
 )
@@ -111,6 +115,7 @@ export const Footer = () => (
             <li><a href="/authors">المؤلفون</a></li>
             <li><a href="/bookmarks">المفضلة</a></li>
             <li><a href="/history">سجل التصفح</a></li>
+            <li><a href="/dashboard">لوحة الإحصاءات</a></li>
             <li><a href="/about">عن التطبيق</a></li>
           </ul>
         </div>

@@ -232,6 +232,159 @@ export function getStats() {
   }
 }
 
+// ============== إحصاءات تفصيلية (لوحة المعلومات) ==============
+export interface DetailedStats {
+  totals: {
+    books: number
+    authors: number
+    surahs: number
+    ayahs: number
+    tafseers: number
+    avgTafseerLength: number
+    totalTafseerChars: number
+  }
+  perBook: Array<{
+    id: string
+    title: string
+    authorName: string
+    schools: string[]
+    tafseersCount: number
+    avgLength: number
+  }>
+  perAuthor: Array<{
+    id: string
+    name: string
+    century: number
+    deathYear: number
+    booksCount: number
+    tafseersCount: number
+  }>
+  bySchool: Array<{ school: string; booksCount: number; tafseersCount: number }>
+  byCentury: Array<{ century: number; authorsCount: number; tafseersCount: number }>
+  topSurahs: Array<{ surah: number; surahName: string; tafseersCount: number; ayahsCovered: number }>
+  ayahsCoveredCount: number
+  ayahsCoverageRatio: number
+}
+
+export function getDetailedStats(): DetailedStats {
+  // perBook
+  const tafseerCountByBook = new Map<string, number>()
+  const tafseerLenByBook = new Map<string, number>()
+  let totalChars = 0
+  for (const t of TAFSEERS) {
+    tafseerCountByBook.set(t.bookId, (tafseerCountByBook.get(t.bookId) || 0) + 1)
+    tafseerLenByBook.set(t.bookId, (tafseerLenByBook.get(t.bookId) || 0) + t.text.length)
+    totalChars += t.text.length
+  }
+  const perBook = BOOKS.map(b => {
+    const author = AUTHORS.find(a => a.id === b.authorId)
+    const cnt = tafseerCountByBook.get(b.id) || 0
+    const totalLen = tafseerLenByBook.get(b.id) || 0
+    return {
+      id: b.id,
+      title: b.title,
+      authorName: author?.name || '',
+      schools: b.schools,
+      tafseersCount: cnt,
+      avgLength: cnt ? Math.round(totalLen / cnt) : 0,
+    }
+  }).sort((a, b) => b.tafseersCount - a.tafseersCount)
+
+  // perAuthor
+  const booksByAuthor = new Map<string, string[]>()
+  for (const b of BOOKS) {
+    if (!booksByAuthor.has(b.authorId)) booksByAuthor.set(b.authorId, [])
+    booksByAuthor.get(b.authorId)!.push(b.id)
+  }
+  const perAuthor = AUTHORS.map(a => {
+    const bookIds = booksByAuthor.get(a.id) || []
+    const tCount = bookIds.reduce((sum, id) => sum + (tafseerCountByBook.get(id) || 0), 0)
+    return {
+      id: a.id,
+      name: a.name,
+      century: a.century,
+      deathYear: a.deathYear,
+      booksCount: bookIds.length,
+      tafseersCount: tCount,
+    }
+  }).sort((a, b) => b.tafseersCount - a.tafseersCount)
+
+  // bySchool
+  const schoolBooksMap = new Map<string, Set<string>>()
+  const schoolTafseersMap = new Map<string, number>()
+  for (const b of BOOKS) {
+    const cnt = tafseerCountByBook.get(b.id) || 0
+    for (const s of b.schools) {
+      if (!schoolBooksMap.has(s)) schoolBooksMap.set(s, new Set())
+      schoolBooksMap.get(s)!.add(b.id)
+      schoolTafseersMap.set(s, (schoolTafseersMap.get(s) || 0) + cnt)
+    }
+  }
+  const bySchool = Array.from(schoolBooksMap.keys()).map(s => ({
+    school: s,
+    booksCount: schoolBooksMap.get(s)!.size,
+    tafseersCount: schoolTafseersMap.get(s) || 0,
+  })).sort((a, b) => b.tafseersCount - a.tafseersCount)
+
+  // byCentury
+  const centuryAuthorMap = new Map<number, Set<string>>()
+  const centuryTafseerMap = new Map<number, number>()
+  for (const a of AUTHORS) {
+    if (!centuryAuthorMap.has(a.century)) centuryAuthorMap.set(a.century, new Set())
+    centuryAuthorMap.get(a.century)!.add(a.id)
+    const bookIds = booksByAuthor.get(a.id) || []
+    const tCount = bookIds.reduce((sum, id) => sum + (tafseerCountByBook.get(id) || 0), 0)
+    centuryTafseerMap.set(a.century, (centuryTafseerMap.get(a.century) || 0) + tCount)
+  }
+  const byCentury = Array.from(centuryAuthorMap.keys()).map(c => ({
+    century: c,
+    authorsCount: centuryAuthorMap.get(c)!.size,
+    tafseersCount: centuryTafseerMap.get(c) || 0,
+  })).sort((a, b) => a.century - b.century)
+
+  // topSurahs (most-covered)
+  const surahTafseerMap = new Map<number, number>()
+  const surahAyahsCovered = new Map<number, Set<number>>()
+  for (const t of TAFSEERS) {
+    surahTafseerMap.set(t.surah, (surahTafseerMap.get(t.surah) || 0) + 1)
+    if (!surahAyahsCovered.has(t.surah)) surahAyahsCovered.set(t.surah, new Set())
+    surahAyahsCovered.get(t.surah)!.add(t.ayah)
+  }
+  const topSurahs = Array.from(surahTafseerMap.keys()).map(num => {
+    const surah = SURAHS.find(s => s.number === num)
+    return {
+      surah: num,
+      surahName: surah?.name || `سورة ${num}`,
+      tafseersCount: surahTafseerMap.get(num) || 0,
+      ayahsCovered: surahAyahsCovered.get(num)?.size || 0,
+    }
+  }).sort((a, b) => b.tafseersCount - a.tafseersCount).slice(0, 10)
+
+  // Ayahs coverage (unique surah:ayah pairs in TAFSEERS)
+  const coveredPairs = new Set<string>()
+  for (const t of TAFSEERS) coveredPairs.add(`${t.surah}:${t.ayah}`)
+  const ayahsCoveredCount = coveredPairs.size
+
+  return {
+    totals: {
+      books: BOOKS.length,
+      authors: AUTHORS.length,
+      surahs: SURAHS.length,
+      ayahs: AYAHS.length,
+      tafseers: TAFSEERS.length,
+      avgTafseerLength: TAFSEERS.length ? Math.round(totalChars / TAFSEERS.length) : 0,
+      totalTafseerChars: totalChars,
+    },
+    perBook,
+    perAuthor,
+    bySchool,
+    byCentury,
+    topSurahs,
+    ayahsCoveredCount,
+    ayahsCoverageRatio: AYAHS.length ? +(ayahsCoveredCount / AYAHS.length).toFixed(3) : 0,
+  }
+}
+
 // ============== Suggestions (Autocomplete) ==============
 export type SuggestionType = 'surah' | 'ayah' | 'book' | 'author' | 'category' | 'topic'
 export interface Suggestion {
