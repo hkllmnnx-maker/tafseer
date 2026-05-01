@@ -1,7 +1,7 @@
 // المكونات الأساسية للتخطيط: الترويسة، التذييل، breadcrumbs
 import {
   IconSearch, IconBookOpen, IconLayers, IconCompare, IconHome,
-  IconMenu, IconMoon, IconSun, IconHash, IconBook, IconBookmark,
+  IconMenu, IconMoon, IconSun, IconHash, IconBook, IconBookmark, IconCalendar,
 } from '../icons'
 
 export const Header = ({ active }: { active?: string }) => (
@@ -72,6 +72,9 @@ export const Header = ({ active }: { active?: string }) => (
       <a href="/bookmarks" class={`nav-link ${active === 'bookmarks' ? 'active' : ''}`}>
         <IconBookmark size={18} /> المفضلة
       </a>
+      <a href="/history" class={`nav-link ${active === 'history' ? 'active' : ''}`}>
+        <IconCalendar size={18} /> سجل التصفح
+      </a>
     </div>
   </header>
 )
@@ -107,6 +110,7 @@ export const Footer = () => (
             <li><a href="/categories">البحث الموضوعي</a></li>
             <li><a href="/authors">المؤلفون</a></li>
             <li><a href="/bookmarks">المفضلة</a></li>
+            <li><a href="/history">سجل التصفح</a></li>
             <li><a href="/about">عن التطبيق</a></li>
           </ul>
         </div>

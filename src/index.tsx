@@ -14,6 +14,7 @@ import { CategoriesPage, CategoryDetailPage } from './views/pages/categories'
 import { SurahsPage, SurahDetailPage } from './views/pages/surahs'
 import { AboutPage } from './views/pages/about'
 import { BookmarksPage } from './views/pages/bookmarks'
+import { HistoryPage } from './views/pages/history'
 
 import { search, getStats, type SearchFilters } from './lib/search'
 import { SURAHS, getSurahByNumber } from './data/surahs'
@@ -166,6 +167,14 @@ app.get('/bookmarks', c => c.render(
   {
     title: 'المفضلة',
     description: 'الآيات التي حفظتها للمراجعة لاحقًا. تُخزَّن محليًا في متصفّحك فقط.',
+  } as any,
+))
+
+app.get('/history', c => c.render(
+  <HistoryPage />,
+  {
+    title: 'سجل التصفح',
+    description: 'آخر الآيات التي تصفّحتها مؤخرًا. يُخزَّن محليًا في متصفّحك فقط.',
   } as any,
 ))
 

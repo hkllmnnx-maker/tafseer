@@ -431,6 +431,138 @@
     }
   }
 
+  // ============== History (LocalStorage) ==============
+  const HISTORY_KEY = 'tafseer-history'
+  const HISTORY_LIMIT = 50
+
+  function readHistory() {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY)
+      if (!raw) return []
+      const arr = JSON.parse(raw)
+      return Array.isArray(arr) ? arr : []
+    } catch (e) { return [] }
+  }
+  function writeHistory(list) {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)) } catch (e) {}
+  }
+  function pushHistory(item) {
+    if (!item || !item.surah || !item.ayah) return
+    const list = readHistory()
+    const key = Number(item.surah) + ':' + Number(item.ayah)
+    const filtered = list.filter(h => (Number(h.surah) + ':' + Number(h.ayah)) !== key)
+    filtered.unshift({
+      surah: Number(item.surah),
+      ayah: Number(item.ayah),
+      surahName: String(item.surahName || ''),
+      ayahText: String(item.ayahText || ''),
+      visitedAt: Date.now(),
+    })
+    if (filtered.length > HISTORY_LIMIT) filtered.length = HISTORY_LIMIT
+    writeHistory(filtered)
+  }
+  function removeHistory(surah, ayah) {
+    const key = Number(surah) + ':' + Number(ayah)
+    const list = readHistory().filter(h => (Number(h.surah) + ':' + Number(h.ayah)) !== key)
+    writeHistory(list)
+  }
+
+  // Auto-track visit on ayah pages (uses bookmark-toggle data attributes already on page)
+  function trackAyahVisit() {
+    const btn = document.getElementById('bookmark-toggle')
+    if (!btn) return
+    const surah = btn.getAttribute('data-surah')
+    const ayah = btn.getAttribute('data-ayah')
+    if (!surah || !ayah) return
+    pushHistory({
+      surah,
+      ayah,
+      surahName: btn.getAttribute('data-surah-name') || '',
+      ayahText: btn.getAttribute('data-ayah-text') || '',
+    })
+  }
+
+  function renderHistoryList() {
+    const list = document.getElementById('history-list')
+    const empty = document.getElementById('history-empty')
+    const toolbar = document.getElementById('history-toolbar')
+    const counter = document.getElementById('history-count')
+    const tpl = document.getElementById('history-card-template')
+    if (!list || !empty || !tpl) return
+    const items = readHistory()
+    list.innerHTML = ''
+    if (!items.length) {
+      empty.style.display = ''
+      if (toolbar) toolbar.style.display = 'none'
+      return
+    }
+    empty.style.display = 'none'
+    if (toolbar) toolbar.style.display = 'flex'
+    if (counter) counter.textContent = `${items.length} زيارة محفوظة`
+
+    items.forEach(h => {
+      const node = tpl.content.cloneNode(true)
+      const surahNameEl = node.querySelector('.bookmark-surah-name')
+      if (surahNameEl) surahNameEl.textContent = `سورة ${h.surahName || ''}`.trim()
+      const ayahNumEl = node.querySelector('.bookmark-ayah-num')
+      if (ayahNumEl) ayahNumEl.textContent = `الآية ${h.ayah}`
+      const dateEl = node.querySelector('.history-date')
+      if (dateEl) dateEl.textContent = h.visitedAt ? formatDateAr(h.visitedAt) : ''
+      const textEl = node.querySelector('.bookmark-text')
+      if (textEl) textEl.textContent = h.ayahText || '(نص الآية غير متوفر في العيّنة)'
+      const openA = node.querySelector('.history-open')
+      if (openA) openA.setAttribute('href', `/ayah/${h.surah}/${h.ayah}`)
+      const cmpA = node.querySelector('.history-compare')
+      if (cmpA) cmpA.setAttribute('href', `/compare?surah=${h.surah}&ayah=${h.ayah}`)
+      const removeBtn = node.querySelector('.history-remove')
+      if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+          removeHistory(h.surah, h.ayah)
+          renderHistoryList()
+          showToast('تمت الإزالة')
+        })
+      }
+      list.appendChild(node)
+    })
+  }
+
+  function initHistoryPage() {
+    if (!document.getElementById('history-list')) return
+    renderHistoryList()
+    const clearBtn = document.getElementById('clear-history')
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (!readHistory().length) return
+        if (!confirm('مسح كل سجل التصفح؟')) return
+        writeHistory([])
+        renderHistoryList()
+        showToast('تم مسح السجل')
+      })
+    }
+  }
+
+  // Render recent on home page (last 5)
+  function renderRecentOnHome() {
+    const slot = document.getElementById('home-recent-list')
+    const section = document.getElementById('home-recent-section')
+    if (!slot || !section) return
+    const items = readHistory().slice(0, 5)
+    if (!items.length) { section.style.display = 'none'; return }
+    section.style.display = ''
+    slot.innerHTML = ''
+    items.forEach(h => {
+      const a = document.createElement('a')
+      a.className = 'recent-chip'
+      a.href = `/ayah/${h.surah}/${h.ayah}`
+      a.innerHTML = `<span class="recent-chip-surah">سورة ${escapeHtmlClient(h.surahName || '')}</span>` +
+        `<span class="recent-chip-ayah">آية ${h.ayah}</span>`
+      slot.appendChild(a)
+    })
+  }
+  function escapeHtmlClient(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
   // ============== Init ==============
   document.addEventListener('DOMContentLoaded', () => {
     initTheme()
@@ -443,6 +575,9 @@
     updateBookmarkBadge()
     initBookmarkToggle()
     initBookmarksPage()
+    trackAyahVisit()
+    initHistoryPage()
+    renderRecentOnHome()
   })
 
   // ============== Service Worker (basic) ==============

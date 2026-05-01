@@ -3,7 +3,7 @@ import { Header, Footer, Toast } from '../components/layout'
 import {
   IconSearch, IconBookOpen, IconHash, IconLayers, IconBook,
   IconDatabase, IconQuote, IconUser, IconSparkles, IconBolt,
-  IconShield, IconStar, IconArrowRightCircle, IconCompare,
+  IconShield, IconStar, IconArrowRightCircle, IconCompare, IconCalendar,
 } from '../icons'
 import { SURAHS } from '../../data/surahs'
 import { BOOKS } from '../../data/books'
@@ -74,6 +74,25 @@ export const HomePage = () => {
               </a>
             </div>
           </form>
+        </div>
+      </section>
+
+      {/* Recent (last visited ayahs) - hidden by default, populated by app.js if any history */}
+      <section class="section" id="home-recent-section" style="padding-top:1.5rem;display:none">
+        <div class="container">
+          <div class="section-header">
+            <div class="section-title-wrap">
+              <h2 class="section-title">
+                <span class="icon-deco"><IconCalendar size={18} /></span>
+                تابع من حيث توقفت
+              </h2>
+              <span class="section-subtitle">آخر الآيات التي تصفّحتها (محليًا في متصفّحك)</span>
+            </div>
+            <a href="/history" class="btn btn-ghost btn-sm">
+              كل السجل <IconArrowRightCircle size={14} />
+            </a>
+          </div>
+          <div id="home-recent-list" class="recent-chips"></div>
         </div>
       </section>
 
