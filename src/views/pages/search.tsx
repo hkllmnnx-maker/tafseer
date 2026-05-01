@@ -13,7 +13,7 @@ import {
   SOURCE_TYPES, VERIFICATION_STATUSES,
   getSourceTypeMeta, getVerificationMeta,
 } from '../../lib/scientific'
-import { SourceTypeBadge, VerificationBadge } from '../components/badges'
+import { SourceTypeBadge, VerificationBadge, ScientificDisclaimer } from '../components/badges'
 
 const SCHOOLS: TafseerSchool[] = ['بالمأثور', 'بالرأي', 'فقهي', 'لغوي', 'بلاغي', 'معاصر', 'ميسر', 'موسوعي']
 
@@ -247,7 +247,7 @@ export const SearchPage = ({
               <EmptyResults q={filters.q || ''} hasFilters={hasAnyFilter(filters)} />
             ) : (
               <>
-                <div class="flex flex-wrap gap-2 mb-4">
+                <div class="flex flex-wrap gap-2 mb-4 items-center">
                   {filters.schools?.map(s => (
                     <span class="chip active">{s}</span>
                   ))}
@@ -259,9 +259,27 @@ export const SearchPage = ({
                     const a = AUTHORS.find(x => x.id === id)
                     return a ? <span class="chip active">{a.name}</span> : null
                   })}
+                  {filters.sourceTypes?.map(s => {
+                    const m = getSourceTypeMeta(s)
+                    return <span class="chip active" title={m.description}>{m.label}</span>
+                  })}
+                  {filters.verificationStatuses?.map(v => {
+                    const m = getVerificationMeta(v)
+                    return <span class="chip active" title={m.description}>{m.label}</span>
+                  })}
                   {filters.surah ? (
                     <span class="chip active">سورة {SURAHS.find(s => s.number === filters.surah)?.name}</span>
                   ) : null}
+                  {hasAnyFilter(filters) || filters.q ? (
+                    <a href="/search" class="btn btn-ghost btn-sm" style="margin-inline-start:auto">
+                      مسح الفلاتر
+                    </a>
+                  ) : null}
+                </div>
+
+                <div class="card mb-4" style="padding:.85rem 1rem;background:rgba(212,175,55,.06);border:1px solid rgba(212,175,55,.25);font-size:.85rem">
+                  <strong>تنبيه علمي:</strong> النتائج المعروضة تعتمد على عيّنة محدودة من نصوص التفسير، وقد تكون بعضها ملخّصات أو نصوصًا قيد المراجعة.
+                  لمعرفة منهجية التحقق ومعنى الشارات، راجع <a href="/methodology" class="text-accent">صفحة المنهجية</a>.
                 </div>
 
                 <div class="flex flex-wrap" style="flex-direction:column;gap:1rem">

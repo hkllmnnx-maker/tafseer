@@ -373,26 +373,37 @@ app.get('/api/suggest', c => {
 })
 
 app.get('/api/search', c => {
-  const q = c.req.query('q') || ''
-  if (q.length > 200) return c.json({ ok: false, error: 'query_too_long' }, 400)
-  const surah = parseIntSafe(c.req.query('surah'))
-  const filters: SearchFilters = {
-    q, surah,
-    ayahFrom: parseIntSafe(c.req.query('ayahFrom')),
-    ayahTo: parseIntSafe(c.req.query('ayahTo')),
+  const rawQ = c.req.query('q') || ''
+  if (rawQ.length > MAX_QUERY_LENGTH) {
+    return c.json({
+      ok: false,
+      error: 'query_too_long',
+      message: `يجب أن يكون طول البحث أقل من ${MAX_QUERY_LENGTH} حرفًا.`,
+      maxLength: MAX_QUERY_LENGTH,
+    }, 400)
+  }
+  // Use the same sanitizer the page route uses, so behaviour is identical
+  // and all filters (including sourceTypes / verificationStatuses) are honoured.
+  const filters = sanitizeFilters({
+    q: rawQ,
+    surah: c.req.query('surah') as any,
+    ayahFrom: c.req.query('ayahFrom') as any,
+    ayahTo: c.req.query('ayahTo') as any,
     bookIds: parseArrayParam(c, 'bookIds'),
     authorIds: parseArrayParam(c, 'authorIds'),
     schools: parseArrayParam(c, 'schools') as TafseerSchool[],
-    centuryFrom: parseIntSafe(c.req.query('centuryFrom')),
-    centuryTo: parseIntSafe(c.req.query('centuryTo')),
+    sourceTypes: parseArrayParam(c, 'sourceTypes') as SourceType[],
+    verificationStatuses: parseArrayParam(c, 'verificationStatuses') as VerificationStatus[],
+    centuryFrom: c.req.query('centuryFrom') as any,
+    centuryTo: c.req.query('centuryTo') as any,
     exactMatch: c.req.query('exactMatch') === '1',
     fuzzy: c.req.query('fuzzy') === '1',
-    searchIn: (c.req.query('searchIn') || 'all') as any,
-    sort: (c.req.query('sort') || 'relevance') as any,
-    page: parseIntSafe(c.req.query('page')) || 1,
-    perPage: parseIntSafe(c.req.query('perPage')) || 10,
-  }
-  return c.json({ ok: true, data: search(filters) })
+    searchIn: c.req.query('searchIn') as any,
+    sort: c.req.query('sort') as any,
+    page: c.req.query('page') as any,
+    perPage: c.req.query('perPage') as any,
+  })
+  return c.json({ ok: true, data: search(filters), filters })
 })
 
 // ============== PWA Manifest ==============
