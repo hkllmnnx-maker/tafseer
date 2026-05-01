@@ -622,23 +622,90 @@ export const TAFSEERS: TafseerEntry[] = [
 ]
 
 // ============== Backfill scientific metadata for legacy entries ==============
-// Every entry in this initial dataset is a *summary* prepared by the editorial team.
-// We treat them as 'partially-verified' because the source name is cited, but no
-// concrete edition / page / URL is provided. Real verified rows (loaded via the
-// importer) override these defaults.
+// Every entry in this initial dataset is a *summary* prepared by the editorial team
+// based on معاني التفاسير المذكورة, NOT a verbatim quotation from the source.
+// Therefore:
+//   - sourceType defaults to 'summary' (or 'sample' if explicitly flagged)
+//   - verificationStatus is 'partially-verified' when a source is named (but no
+//     edition/volume/page is provided), or 'unverified' otherwise.
+//   - isOriginalText is ALWAYS false unless explicitly set to true with full
+//     citation (edition + volume + page) — we never claim original-text by default.
+//   - sourceName is taken from the legacy `source` field when missing.
+//   - A reviewerNote is added explaining the partial verification status.
+//
+// Real verified rows (loaded via the importer or curated entries) MUST set these
+// fields explicitly to override these conservative defaults.
+
+const SUMMARY_REVIEWER_NOTE =
+  'صياغة مختصرة بأسلوب الفريق العلمي، مستفادة من معاني المصدر المذكور، وليست نقلًا حرفيًا. يُرجى الرجوع للمصدر للتحقق.'
+
 for (const t of TAFSEERS) {
+  // 1) sourceType: default to 'summary' for legacy entries (they are paraphrases,
+  //    not verbatim quotes). 'sample' only when explicitly flagged.
   if (!t.sourceType) {
     t.sourceType = t.isSample ? 'sample' : 'summary'
   }
+
+  // 2) verificationStatus:
+  //    - 'verified'           → only when sourceType is 'original-text' AND we
+  //                             have edition/volume/page details.
+  //    - 'partially-verified' → when a source name exists but full citation is
+  //                             missing (this is the common case for our seed data).
+  //    - 'unverified'         → samples or entries without any source.
   if (!t.verificationStatus) {
-    if (t.sourceType === 'sample') t.verificationStatus = 'unverified'
-    else if (t.source && (t.volume || t.page)) t.verificationStatus = 'verified'
-    else if (t.source) t.verificationStatus = 'partially-verified'
-    else t.verificationStatus = 'unverified'
+    if (t.sourceType === 'sample') {
+      t.verificationStatus = 'unverified'
+    } else if (
+      t.sourceType === 'original-text' && (t.volume || t.page) && (t.source || t.sourceName)
+    ) {
+      t.verificationStatus = 'verified'
+    } else if (t.source || t.sourceName) {
+      t.verificationStatus = 'partially-verified'
+    } else {
+      t.verificationStatus = 'unverified'
+    }
   }
+
+  // 3) sourceName backfill from legacy `source` field
   if (!t.sourceName && t.source) t.sourceName = t.source
-  if (t.isOriginalText === undefined) t.isOriginalText = t.sourceType === 'original-text'
+
+  // 4) isOriginalText is conservative: only true when explicitly set
+  if (t.isOriginalText === undefined) {
+    t.isOriginalText = t.sourceType === 'original-text'
+  }
+
+  // 5) reviewerNote: add a default explanation for summary entries so the user
+  //    always sees WHY the verification is partial.
+  if (!t.reviewerNote && t.sourceType === 'summary' && t.verificationStatus === 'partially-verified') {
+    t.reviewerNote = SUMMARY_REVIEWER_NOTE
+  }
 }
+
+// ============== Strict validation guard ==============
+// Throws at build/startup if any entry is missing required scientific metadata.
+// This is the safety net required by the agent spec: "أضف helper أو سكربت تحقق
+// يمنع وجود تفسير بلا sourceType و verificationStatus".
+export function assertTafseersScientificMetadata(): void {
+  const errors: string[] = []
+  const ids = new Set<string>()
+  for (const t of TAFSEERS) {
+    if (!t.id) errors.push(`tafseer without id`)
+    if (ids.has(t.id)) errors.push(`duplicate id: ${t.id}`)
+    ids.add(t.id)
+    if (!t.sourceType) errors.push(`${t.id}: missing sourceType`)
+    if (!t.verificationStatus) errors.push(`${t.id}: missing verificationStatus`)
+    if (!t.sourceName && !t.source) errors.push(`${t.id}: missing sourceName/source`)
+    if (!t.bookId) errors.push(`${t.id}: missing bookId`)
+    if (!t.text || t.text.trim().length < 10) errors.push(`${t.id}: text too short`)
+  }
+  if (errors.length) {
+    throw new Error(`Tafseer scientific metadata validation failed:\n` + errors.join('\n'))
+  }
+}
+
+// Run validation eagerly so the module fails fast in dev/build if data is broken.
+// In production this throws once at cold-start, surfacing problems immediately.
+assertTafseersScientificMetadata()
 
 export const getTafseersByAyah = (surah: number, ayah: number) =>
   TAFSEERS.filter(t => t.surah === surah && t.ayah === ayah)
