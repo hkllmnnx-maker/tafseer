@@ -1172,3 +1172,82 @@ p { color: var(--text-secondary); }
 /* Hide scrollbar utility */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* ============== Bookmarks ============== */
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-inline-start: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-on-accent);
+  background: var(--accent-primary);
+  border-radius: var(--radius-full);
+  line-height: 1;
+}
+
+.bookmark-toggle-btn.is-bookmarked {
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.bookmark-toggle-btn.is-bookmarked svg {
+  fill: var(--accent-primary);
+  stroke: var(--accent-primary);
+}
+
+.bookmark-card {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+.bookmark-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.bookmark-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+.bookmark-meta .bookmark-surah-name {
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+.bookmark-meta .bookmark-sep { opacity: 0.4; }
+.bookmark-text {
+  font-family: var(--font-quran);
+  font-size: 1.35rem;
+  line-height: 2.2;
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border-inline-start: 3px solid var(--gold-primary);
+}
+.bookmark-note {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--gold-light);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  border-inline-start: 3px solid var(--gold-primary);
+}
+[data-theme="dark"] .bookmark-note {
+  background: rgba(181, 139, 58, 0.15);
+}
+
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.mt-3 { margin-top: 0.75rem; }

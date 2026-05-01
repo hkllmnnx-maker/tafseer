@@ -190,6 +190,247 @@
     })
   }
 
+  // ============== Bookmarks (LocalStorage) ==============
+  const BOOKMARKS_KEY = 'tafseer-bookmarks'
+
+  function readBookmarks() {
+    try {
+      const raw = localStorage.getItem(BOOKMARKS_KEY)
+      if (!raw) return []
+      const arr = JSON.parse(raw)
+      return Array.isArray(arr) ? arr : []
+    } catch (e) { return [] }
+  }
+  function writeBookmarks(list) {
+    try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(list)) } catch (e) {}
+    updateBookmarkBadge()
+  }
+  function bookmarkKey(surah, ayah) { return Number(surah) + ':' + Number(ayah) }
+  function findBookmark(list, surah, ayah) {
+    const key = bookmarkKey(surah, ayah)
+    return list.findIndex(b => bookmarkKey(b.surah, b.ayah) === key)
+  }
+  function isBookmarked(surah, ayah) {
+    return findBookmark(readBookmarks(), surah, ayah) > -1
+  }
+  function addBookmark(item) {
+    const list = readBookmarks()
+    if (findBookmark(list, item.surah, item.ayah) > -1) return false
+    list.unshift({
+      surah: Number(item.surah),
+      ayah: Number(item.ayah),
+      surahName: item.surahName || '',
+      ayahText: item.ayahText || '',
+      note: item.note || '',
+      addedAt: Date.now(),
+    })
+    writeBookmarks(list)
+    return true
+  }
+  function removeBookmark(surah, ayah) {
+    const list = readBookmarks()
+    const i = findBookmark(list, surah, ayah)
+    if (i === -1) return false
+    list.splice(i, 1)
+    writeBookmarks(list)
+    return true
+  }
+  function updateBookmarkNote(surah, ayah, note) {
+    const list = readBookmarks()
+    const i = findBookmark(list, surah, ayah)
+    if (i === -1) return false
+    list[i].note = note
+    writeBookmarks(list)
+    return true
+  }
+
+  function updateBookmarkBadge() {
+    const badge = document.getElementById('bookmark-count-badge')
+    if (!badge) return
+    const count = readBookmarks().length
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count)
+      badge.style.display = ''
+    } else {
+      badge.style.display = 'none'
+    }
+  }
+
+  function applyBookmarkToggleState(btn, on) {
+    if (!btn) return
+    const label = btn.querySelector('.bookmark-toggle-label')
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false')
+    btn.classList.toggle('is-bookmarked', !!on)
+    if (label) label.textContent = on ? 'محفوظة في المفضلة' : 'حفظ في المفضلة'
+  }
+
+  function initBookmarkToggle() {
+    const btn = document.getElementById('bookmark-toggle')
+    if (!btn) return
+    const surah = btn.getAttribute('data-surah')
+    const ayah = btn.getAttribute('data-ayah')
+    if (!surah || !ayah) return
+    applyBookmarkToggleState(btn, isBookmarked(surah, ayah))
+    btn.addEventListener('click', () => {
+      if (isBookmarked(surah, ayah)) {
+        removeBookmark(surah, ayah)
+        applyBookmarkToggleState(btn, false)
+        showToast('تمت إزالتها من المفضلة')
+      } else {
+        addBookmark({
+          surah,
+          ayah,
+          surahName: btn.getAttribute('data-surah-name') || '',
+          ayahText: btn.getAttribute('data-ayah-text') || '',
+        })
+        applyBookmarkToggleState(btn, true)
+        showToast('تمت الإضافة إلى المفضلة')
+      }
+    })
+  }
+
+  function formatDateAr(ts) {
+    try {
+      const d = new Date(ts)
+      const opts = { year: 'numeric', month: 'long', day: 'numeric' }
+      return d.toLocaleDateString('ar', opts)
+    } catch (e) { return '' }
+  }
+
+  function renderBookmarksList() {
+    const list = document.getElementById('bookmarks-list')
+    const empty = document.getElementById('bookmarks-empty')
+    const toolbar = document.getElementById('bookmarks-toolbar')
+    const counter = document.getElementById('bookmarks-count')
+    const tpl = document.getElementById('bookmark-card-template')
+    if (!list || !empty || !tpl) return
+    const items = readBookmarks()
+    list.innerHTML = ''
+    if (!items.length) {
+      empty.style.display = ''
+      if (toolbar) toolbar.style.display = 'none'
+      return
+    }
+    empty.style.display = 'none'
+    if (toolbar) toolbar.style.display = 'flex'
+    if (counter) counter.textContent = `${items.length} آية محفوظة`
+
+    items.forEach(b => {
+      const node = tpl.content.cloneNode(true)
+      const card = node.querySelector('.bookmark-card')
+      const url = `/ayah/${b.surah}/${b.ayah}`
+      card.setAttribute('data-surah', String(b.surah))
+      card.setAttribute('data-ayah', String(b.ayah))
+      const surahNameEl = node.querySelector('.bookmark-surah-name')
+      if (surahNameEl) surahNameEl.textContent = `سورة ${b.surahName || ''}`.trim()
+      const ayahNumEl = node.querySelector('.bookmark-ayah-num')
+      if (ayahNumEl) ayahNumEl.textContent = `الآية ${b.ayah}`
+      const dateEl = node.querySelector('.bookmark-date')
+      if (dateEl) dateEl.textContent = b.addedAt ? formatDateAr(b.addedAt) : ''
+      const textEl = node.querySelector('.bookmark-text')
+      if (textEl) textEl.textContent = b.ayahText || '(نص الآية غير متوفر في العيّنة)'
+      const noteEl = node.querySelector('.bookmark-note')
+      if (noteEl && b.note) {
+        noteEl.textContent = '📝 ' + b.note
+        noteEl.style.display = ''
+      }
+      const openA = node.querySelector('.bookmark-open')
+      if (openA) openA.setAttribute('href', url)
+      const cmpA = node.querySelector('.bookmark-compare')
+      if (cmpA) cmpA.setAttribute('href', `/compare?surah=${b.surah}&ayah=${b.ayah}`)
+
+      const removeBtn = node.querySelector('.bookmark-remove')
+      if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+          if (!confirm('هل تريد حذف هذه الآية من المفضلة؟')) return
+          removeBookmark(b.surah, b.ayah)
+          renderBookmarksList()
+          showToast('تم الحذف')
+        })
+      }
+      const editBtn = node.querySelector('.bookmark-edit-note')
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          const cur = b.note || ''
+          const next = prompt('أضف ملاحظة لهذه الآية:', cur)
+          if (next === null) return
+          updateBookmarkNote(b.surah, b.ayah, next.trim())
+          renderBookmarksList()
+          showToast('تم الحفظ')
+        })
+      }
+
+      list.appendChild(node)
+    })
+  }
+
+  function initBookmarksPage() {
+    if (!document.getElementById('bookmarks-list')) return
+    renderBookmarksList()
+    const exportBtn = document.getElementById('export-bookmarks')
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const data = JSON.stringify(readBookmarks(), null, 2)
+        const blob = new Blob([data], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'tafseer-bookmarks-' + new Date().toISOString().slice(0, 10) + '.json'
+        document.body.appendChild(a); a.click(); a.remove()
+        URL.revokeObjectURL(url)
+        showToast('تم تصدير ' + readBookmarks().length + ' عنصر')
+      })
+    }
+    const importInput = document.getElementById('import-bookmarks')
+    if (importInput) {
+      importInput.addEventListener('change', e => {
+        const f = e.target.files && e.target.files[0]
+        if (!f) return
+        const reader = new FileReader()
+        reader.onload = () => {
+          try {
+            const arr = JSON.parse(String(reader.result || '[]'))
+            if (!Array.isArray(arr)) throw new Error('format')
+            const cur = readBookmarks()
+            let added = 0
+            arr.forEach(item => {
+              if (!item || typeof item.surah !== 'number' || typeof item.ayah !== 'number') return
+              if (findBookmark(cur, item.surah, item.ayah) > -1) return
+              cur.push({
+                surah: item.surah,
+                ayah: item.ayah,
+                surahName: String(item.surahName || ''),
+                ayahText: String(item.ayahText || ''),
+                note: String(item.note || ''),
+                addedAt: Number(item.addedAt) || Date.now(),
+              })
+              added++
+            })
+            // sort newest first
+            cur.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
+            writeBookmarks(cur)
+            renderBookmarksList()
+            showToast('تم استيراد ' + added + ' عنصر جديد')
+          } catch (err) {
+            showToast('ملف غير صالح')
+          }
+          importInput.value = ''
+        }
+        reader.readAsText(f)
+      })
+    }
+    const clearBtn = document.getElementById('clear-bookmarks')
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (!readBookmarks().length) return
+        if (!confirm('حذف كل الآيات من المفضلة؟ لا يمكن التراجع.')) return
+        writeBookmarks([])
+        renderBookmarksList()
+        showToast('تم حذف الكل')
+      })
+    }
+  }
+
   // ============== Init ==============
   document.addEventListener('DOMContentLoaded', () => {
     initTheme()
@@ -199,6 +440,9 @@
     initTafseerCollapse()
     initFontSize()
     initSearchSuggestions()
+    updateBookmarkBadge()
+    initBookmarkToggle()
+    initBookmarksPage()
   })
 
   // ============== Service Worker (basic) ==============

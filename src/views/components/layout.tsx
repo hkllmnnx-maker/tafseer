@@ -1,7 +1,7 @@
 // المكونات الأساسية للتخطيط: الترويسة، التذييل، breadcrumbs
 import {
   IconSearch, IconBookOpen, IconLayers, IconCompare, IconHome,
-  IconMenu, IconMoon, IconSun, IconHash, IconBook,
+  IconMenu, IconMoon, IconSun, IconHash, IconBook, IconBookmark,
 } from '../icons'
 
 export const Header = ({ active }: { active?: string }) => (
@@ -32,6 +32,10 @@ export const Header = ({ active }: { active?: string }) => (
         </a>
         <a href="/compare" class={`nav-link ${active === 'compare' ? 'active' : ''}`}>
           <IconCompare size={16} /> المقارنة
+        </a>
+        <a href="/bookmarks" class={`nav-link ${active === 'bookmarks' ? 'active' : ''}`}>
+          <IconBookmark size={16} /> المفضلة
+          <span id="bookmark-count-badge" class="badge-count" style="display:none"></span>
         </a>
       </nav>
 
@@ -64,6 +68,9 @@ export const Header = ({ active }: { active?: string }) => (
       </a>
       <a href="/compare" class={`nav-link ${active === 'compare' ? 'active' : ''}`}>
         <IconCompare size={18} /> المقارنة
+      </a>
+      <a href="/bookmarks" class={`nav-link ${active === 'bookmarks' ? 'active' : ''}`}>
+        <IconBookmark size={18} /> المفضلة
       </a>
     </div>
   </header>
@@ -99,6 +106,7 @@ export const Footer = () => (
           <ul>
             <li><a href="/categories">البحث الموضوعي</a></li>
             <li><a href="/authors">المؤلفون</a></li>
+            <li><a href="/bookmarks">المفضلة</a></li>
             <li><a href="/about">عن التطبيق</a></li>
           </ul>
         </div>

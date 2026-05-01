@@ -3,7 +3,7 @@ import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import {
   IconArrowLeft, IconArrowRight, IconCopy, IconShare, IconExternal,
   IconBook, IconChevronDown, IconChevronUp, IconQuote, IconCompare,
-  IconTextSize, IconHash,
+  IconTextSize, IconHash, IconBookmark,
 } from '../icons'
 import { SURAHS, getSurahByNumber } from '../../data/surahs'
 import { getAyah } from '../../data/ayahs'
@@ -62,6 +62,18 @@ export const AyahPage = ({
           <a href={`/compare?surah=${surah}&ayah=${ayah}`} class="btn btn-secondary btn-sm">
             <IconCompare size={16} /> مقارنة
           </a>
+          <button
+            class="btn btn-secondary btn-sm bookmark-toggle-btn"
+            id="bookmark-toggle"
+            data-surah={surah}
+            data-ayah={ayah}
+            data-surah-name={surahData.name}
+            data-ayah-text={ayahData ? ayahData.text : ''}
+            aria-pressed="false"
+            title="حفظ في المفضلة">
+            <IconBookmark size={16} />
+            <span class="bookmark-toggle-label">حفظ في المفضلة</span>
+          </button>
           <span style="margin-inline-start:auto" class="text-sm text-tertiary">
             {tafseers.length > 0 ? `${tafseers.length} مصدر تفسيري` : 'لا توجد تفاسير محفوظة لهذه الآية'}
           </span>

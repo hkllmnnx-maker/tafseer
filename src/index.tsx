@@ -13,6 +13,7 @@ import { ComparePage } from './views/pages/compare'
 import { CategoriesPage, CategoryDetailPage } from './views/pages/categories'
 import { SurahsPage, SurahDetailPage } from './views/pages/surahs'
 import { AboutPage } from './views/pages/about'
+import { BookmarksPage } from './views/pages/bookmarks'
 
 import { search, getStats, type SearchFilters } from './lib/search'
 import { SURAHS, getSurahByNumber } from './data/surahs'
@@ -159,6 +160,14 @@ app.get('/surahs/:n', c => {
 })
 
 app.get('/about', c => c.render(<AboutPage />, { title: 'عن التطبيق' } as any))
+
+app.get('/bookmarks', c => c.render(
+  <BookmarksPage />,
+  {
+    title: 'المفضلة',
+    description: 'الآيات التي حفظتها للمراجعة لاحقًا. تُخزَّن محليًا في متصفّحك فقط.',
+  } as any,
+))
 
 // ============== JSON API ==============
 app.get('/api/stats', c => c.json({ ok: true, data: getStats() }))
