@@ -1,0 +1,158 @@
+// مؤلفو كتب التفسير الرئيسية
+export interface Author {
+  id: string
+  name: string
+  fullName: string
+  birthYear?: number
+  deathYear: number  // الوفاة بالهجري
+  deathYearAD?: number
+  century: number  // القرن الهجري
+  bio: string
+  origin?: string
+  school?: string
+}
+
+export const AUTHORS: Author[] = [
+  {
+    id: 'tabari',
+    name: 'الطبري',
+    fullName: 'محمد بن جرير بن يزيد الطبري، أبو جعفر',
+    birthYear: 224,
+    deathYear: 310,
+    deathYearAD: 923,
+    century: 4,
+    bio: 'إمام المفسرين والمؤرخين، صاحب التفسير الكبير "جامع البيان عن تأويل آي القرآن" الذي يُعدّ مرجعًا أصيلًا للتفسير بالمأثور.',
+    origin: 'طبرستان',
+    school: 'مستقل',
+  },
+  {
+    id: 'qurtubi',
+    name: 'القرطبي',
+    fullName: 'أبو عبد الله محمد بن أحمد بن أبي بكر الأنصاري الخزرجي القرطبي',
+    deathYear: 671,
+    deathYearAD: 1273,
+    century: 7,
+    bio: 'من كبار المفسرين، صاحب "الجامع لأحكام القرآن"، الذي يُعدّ من أهم كتب التفسير الفقهي.',
+    origin: 'الأندلس',
+    school: 'مالكي',
+  },
+  {
+    id: 'ibn-kathir',
+    name: 'ابن كثير',
+    fullName: 'إسماعيل بن عمر بن كثير القرشي البصروي ثم الدمشقي، أبو الفداء',
+    birthYear: 700,
+    deathYear: 774,
+    deathYearAD: 1373,
+    century: 8,
+    bio: 'الإمام الحافظ المفسر، صاحب "تفسير القرآن العظيم" الذي يُعدّ من أعمدة التفسير بالمأثور بعد تفسير الطبري.',
+    origin: 'الشام',
+    school: 'شافعي',
+  },
+  {
+    id: 'baghawi',
+    name: 'البغوي',
+    fullName: 'الحسين بن مسعود بن محمد بن الفراء البغوي الشافعي، أبو محمد',
+    deathYear: 516,
+    deathYearAD: 1122,
+    century: 6,
+    bio: 'الإمام محيي السنة، صاحب "معالم التنزيل" المعروف بتفسير البغوي، تفسير معتدل جامع.',
+    origin: 'خراسان',
+    school: 'شافعي',
+  },
+  {
+    id: 'saadi',
+    name: 'السعدي',
+    fullName: 'عبد الرحمن بن ناصر بن عبد الله السعدي',
+    birthYear: 1307,
+    deathYear: 1376,
+    deathYearAD: 1956,
+    century: 14,
+    bio: 'العلامة الشيخ المفسر، صاحب "تيسير الكريم الرحمن في تفسير كلام المنان"، تفسير ميسر بأسلوب حديث.',
+    origin: 'نجد',
+    school: 'حنبلي',
+  },
+  {
+    id: 'shawkani',
+    name: 'الشوكاني',
+    fullName: 'محمد بن علي بن محمد بن عبد الله الشوكاني الصنعاني',
+    birthYear: 1173,
+    deathYear: 1250,
+    deathYearAD: 1834,
+    century: 13,
+    bio: 'الإمام المجتهد، صاحب "فتح القدير الجامع بين فني الرواية والدراية من علم التفسير".',
+    origin: 'اليمن',
+    school: 'مستقل',
+  },
+  {
+    id: 'razi',
+    name: 'الرازي',
+    fullName: 'فخر الدين محمد بن عمر بن الحسين الرازي',
+    birthYear: 544,
+    deathYear: 606,
+    deathYearAD: 1210,
+    century: 7,
+    bio: 'الإمام المتكلم المفسر، صاحب "مفاتيح الغيب" المعروف بالتفسير الكبير، تفسير عقلي بلاغي موسوعي.',
+    origin: 'الري',
+    school: 'شافعي',
+  },
+  {
+    id: 'baidawi',
+    name: 'البيضاوي',
+    fullName: 'عبد الله بن عمر بن محمد البيضاوي، ناصر الدين',
+    deathYear: 685,
+    deathYearAD: 1286,
+    century: 7,
+    bio: 'القاضي الإمام، صاحب "أنوار التنزيل وأسرار التأويل"، تفسير مختصر بليغ يُعنى بالنحو والبلاغة.',
+    origin: 'فارس',
+    school: 'شافعي',
+  },
+  {
+    id: 'zamakhshari',
+    name: 'الزمخشري',
+    fullName: 'محمود بن عمر بن محمد الزمخشري، جار الله',
+    birthYear: 467,
+    deathYear: 538,
+    deathYearAD: 1144,
+    century: 6,
+    bio: 'العلامة اللغوي البلاغي، صاحب "الكشاف عن حقائق التنزيل وعيون الأقاويل في وجوه التأويل"، تفسير لغوي بلاغي.',
+    origin: 'خوارزم',
+    school: 'مستقل',
+  },
+  {
+    id: 'jalalayn',
+    name: 'الجلالان',
+    fullName: 'جلال الدين المحلي وجلال الدين السيوطي',
+    deathYear: 911,
+    deathYearAD: 1505,
+    century: 10,
+    bio: 'تفسير الجلالين من أشهر التفاسير الميسرة المختصرة، بدأه المحلي (864هـ) وأتمه السيوطي (911هـ).',
+    origin: 'مصر',
+    school: 'شافعي',
+  },
+  {
+    id: 'tantawi',
+    name: 'طنطاوي',
+    fullName: 'محمد سيد طنطاوي',
+    birthYear: 1347,
+    deathYear: 1431,
+    deathYearAD: 2010,
+    century: 15,
+    bio: 'العلامة شيخ الأزهر، صاحب "التفسير الوسيط للقرآن الكريم"، تفسير معاصر معتدل.',
+    origin: 'مصر',
+    school: 'مستقل',
+  },
+  {
+    id: 'ibn-ashur',
+    name: 'ابن عاشور',
+    fullName: 'محمد الطاهر بن محمد بن محمد الطاهر بن عاشور التونسي',
+    birthYear: 1296,
+    deathYear: 1393,
+    deathYearAD: 1973,
+    century: 14,
+    bio: 'العلامة المفسر، صاحب "التحرير والتنوير"، من أعظم تفاسير العصر الحديث في البلاغة والمقاصد.',
+    origin: 'تونس',
+    school: 'مالكي',
+  },
+]
+
+export const getAuthorById = (id: string) => AUTHORS.find(a => a.id === id)
