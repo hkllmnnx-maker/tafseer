@@ -49,6 +49,36 @@ app.use(
 // CORS for API
 app.use('/api/*', cors({ origin: '*', allowMethods: ['GET'] }))
 
+// ============== Cache headers (performance) ==============
+// 1) الأصول الثابتة: تخزين طويل (سنة، immutable)
+app.use('/static/*', async (c, next) => {
+  await next()
+  c.header('Cache-Control', 'public, max-age=31536000, immutable')
+})
+
+// 2) Service worker: لا يُخزَّن (يجب التحقق دائمًا)
+app.use('/sw.js', async (c, next) => {
+  await next()
+  c.header('Cache-Control', 'public, max-age=0, must-revalidate')
+})
+
+// 3) API: تخزين قصير على CDN + stale-while-revalidate
+app.use('/api/*', async (c, next) => {
+  await next()
+  if (!c.res.headers.get('Cache-Control')) {
+    c.header('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600')
+  }
+})
+
+// 4) صفحات HTML: تخزين قصير على CDN فقط
+app.use('*', async (c, next) => {
+  await next()
+  const ct = c.res.headers.get('Content-Type') || ''
+  if (ct.includes('text/html') && !c.res.headers.get('Cache-Control')) {
+    c.header('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=600')
+  }
+})
+
 // Renderer
 app.use(renderer as any)
 
