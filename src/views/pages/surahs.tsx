@@ -96,6 +96,14 @@ export const SurahDetailPage = ({ surahNumber }: { surahNumber: number }) => {
           </div>
           <h1>سورة {surah.name}</h1>
           <p class="text-tertiary">{surah.nameLatin}</p>
+          <div class="flex flex-wrap gap-2 mt-4" style="justify-content:center">
+            <a href={`/read/${surah.number}`} class="btn btn-primary">
+              <IconBookOpen size={16} /> قراءة متسلسلة (آيات + تفاسير)
+            </a>
+            <a href={`/compare?surah=${surah.number}&ayah=1`} class="btn btn-secondary">
+              مقارنة تفاسير الآية الأولى
+            </a>
+          </div>
         </div>
 
         {ayahs.length > 0 ? (

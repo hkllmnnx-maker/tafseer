@@ -690,6 +690,75 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   }
 
+  // ============== Read Page (/read/:n) — Toggle Tafseers + Arrow Nav + TOC highlight ==============
+  function initReadPage() {
+    const toolbar = document.getElementById('read-toolbar')
+    if (!toolbar) return // ليست صفحة قراءة
+
+    // 1) زر إخفاء/إظهار كل التفاسير (مع حفظ الحالة في localStorage)
+    const toggleBtn = document.getElementById('toggle-tafseers')
+    const toggleLabel = document.getElementById('toggle-tafseers-label')
+    if (toggleBtn) {
+      const STORAGE_KEY = 'tafseer-read-tafseers-hidden'
+      const apply = (hidden) => {
+        document.querySelectorAll('[data-tafseers-block]').forEach(el => {
+          el.classList.toggle('hidden-tafseers', hidden)
+        })
+        if (toggleLabel) toggleLabel.textContent = hidden ? 'إظهار التفاسير' : 'إخفاء التفاسير'
+        toggleBtn.setAttribute('aria-pressed', hidden ? 'true' : 'false')
+      }
+      let hidden = false
+      try { hidden = localStorage.getItem(STORAGE_KEY) === '1' } catch (_) {}
+      apply(hidden)
+      toggleBtn.addEventListener('click', () => {
+        hidden = !hidden
+        try { localStorage.setItem(STORAGE_KEY, hidden ? '1' : '0') } catch (_) {}
+        apply(hidden)
+        showToast(hidden ? 'تم إخفاء التفاسير' : 'تم إظهار التفاسير')
+      })
+    }
+
+    // 2) التنقل بالأسهم بين الآيات (RTL: يمين=السابق، يسار=التالي)
+    const blocks = Array.from(document.querySelectorAll('.read-ayah-block'))
+    if (blocks.length > 1) {
+      document.addEventListener('keydown', (e) => {
+        const tag = (e.target && e.target.tagName) || ''
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || (e.target && e.target.isContentEditable)) return
+        if (e.altKey || e.ctrlKey || e.metaKey) return
+        const isPrev = e.key === 'ArrowRight'
+        const isNext = e.key === 'ArrowLeft'
+        if (!isPrev && !isNext) return
+
+        const offset = 120
+        let currentIdx = 0
+        for (let i = 0; i < blocks.length; i++) {
+          const rect = blocks[i].getBoundingClientRect()
+          if (rect.top - offset <= 0) currentIdx = i
+        }
+        const targetIdx = isPrev ? Math.max(0, currentIdx - 1) : Math.min(blocks.length - 1, currentIdx + 1)
+        if (targetIdx !== currentIdx) {
+          e.preventDefault()
+          blocks[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      })
+    }
+
+    // 3) تمييز الآية الحالية في فهرس الصفحة (TOC) عند التمرير
+    if ('IntersectionObserver' in window && blocks.length) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id
+            document.querySelectorAll('a.badge-outline[href^="#ayah-"]').forEach(a => {
+              a.classList.toggle('badge-active', a.getAttribute('href') === '#' + id)
+            })
+          }
+        })
+      }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 })
+      blocks.forEach(b => io.observe(b))
+    }
+  }
+
   // ============== Init ==============
   document.addEventListener('DOMContentLoaded', () => {
     initTheme()
@@ -705,6 +774,7 @@
     trackAyahVisit()
     initHistoryPage()
     renderRecentOnHome()
+    initReadPage()
   })
 
   // ============== Service Worker (basic) ==============

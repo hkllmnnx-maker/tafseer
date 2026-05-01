@@ -1474,3 +1474,91 @@ p { color: var(--text-secondary); }
   .bar-row { grid-template-columns: 1fr; gap: .35rem; }
   .bar-value { text-align: start; }
 }
+
+/* ============== صفحة القراءة المتسلسلة /read/:n ============== */
+.read-toolbar {
+  position: sticky;
+  top: var(--header-height, 64px);
+  z-index: 20;
+  background: var(--bg-primary);
+  border: 1px solid var(--border, rgba(0,0,0,.08));
+  border-radius: var(--radius-md, 12px);
+  padding: .65rem .85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 14px -8px rgba(0,0,0,.08);
+  backdrop-filter: saturate(140%) blur(6px);
+}
+
+.read-ayahs-list { display: flex; flex-direction: column; gap: .5rem; }
+
+.read-ayah-block {
+  border: 1px solid var(--border-soft, rgba(0,0,0,.08));
+  border-radius: var(--radius-md, 12px);
+  padding: 1.25rem 1rem 1rem;
+  background: var(--bg-card, var(--bg-primary));
+  position: relative;
+  scroll-margin-top: calc(var(--header-height, 64px) + 80px);
+}
+
+.read-ayah-block .ayah-display {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent-strong, #0f5c3e) 4%, transparent),
+    transparent);
+  border-radius: var(--radius-md, 12px);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.read-tafseers { padding: 0 .25rem; }
+
+.tafseer-card.compact .tafseer-body { padding: .85rem 1.25rem; font-size: .96rem; line-height: 1.85; }
+.tafseer-card.compact .tafseer-header { padding: .65rem 1rem; }
+.tafseer-card.compact .tafseer-book-cover-mini {
+  width: 32px; height: 32px;
+}
+
+.back-to-top-mini {
+  position: absolute;
+  inset-inline-end: .75rem;
+  bottom: .75rem;
+  width: 32px; height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft, rgba(0,0,0,.08));
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all .15s ease;
+  opacity: .7;
+}
+.back-to-top-mini:hover {
+  opacity: 1;
+  background: var(--accent-soft, color-mix(in srgb, var(--accent-strong, #0f5c3e) 10%, transparent));
+  color: var(--accent-strong, #0f5c3e);
+}
+
+.read-tafseers.hidden-tafseers { display: none; }
+
+@media (max-width: 640px) {
+  .hide-mobile { display: none !important; }
+  .read-toolbar { top: 0; }
+  .read-ayah-block { padding: .85rem .65rem .75rem; }
+  .read-ayah-block .ayah-display { padding: .85rem; }
+}
+
+/* ============== Read Page TOC Active Badge ============== */
+.badge-outline.badge-active {
+  background: var(--accent-soft, color-mix(in srgb, var(--accent-strong, #0f5c3e) 15%, transparent));
+  border-color: var(--accent-strong, #0f5c3e);
+  color: var(--accent-strong, #0f5c3e);
+  font-weight: 700;
+}
+
+/* تحسين سلاسة التمرير في صفحة القراءة */
+html { scroll-behavior: smooth; }

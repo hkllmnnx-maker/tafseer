@@ -12,6 +12,7 @@ import { AuthorsPage, AuthorDetailPage } from './views/pages/authors'
 import { ComparePage } from './views/pages/compare'
 import { CategoriesPage, CategoryDetailPage } from './views/pages/categories'
 import { SurahsPage, SurahDetailPage } from './views/pages/surahs'
+import { ReadPage } from './views/pages/read'
 import { AboutPage } from './views/pages/about'
 import { BookmarksPage } from './views/pages/bookmarks'
 import { HistoryPage } from './views/pages/history'
@@ -158,6 +159,19 @@ app.get('/surahs/:n', c => {
   return c.render(
     <SurahDetailPage surahNumber={n} />,
     { title: s ? `سورة ${s.name}` : 'سورة' } as any,
+  )
+})
+
+// قراءة متسلسلة لسورة كاملة (آيات + تفاسير مدمجة)
+app.get('/read/:n', c => {
+  const n = parseIntSafe(c.req.param('n')) || 0
+  const s = getSurahByNumber(n)
+  return c.render(
+    <ReadPage surahNumber={n} />,
+    {
+      title: s ? `قراءة سورة ${s.name}` : 'قراءة',
+      description: s ? `قراءة متسلسلة لسورة ${s.name} مع التفاسير المدمجة لكل آية.` : undefined,
+    } as any,
   )
 })
 
