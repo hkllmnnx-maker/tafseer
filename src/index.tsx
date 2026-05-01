@@ -306,9 +306,61 @@ app.get('/api/categories', c => c.json({ ok: true, data: CATEGORIES }))
 app.get('/api/ayah/:surah/:ayah', c => {
   const surah = parseIntSafe(c.req.param('surah')) || 0
   const ayah = parseIntSafe(c.req.param('ayah')) || 0
+  const surahData = getSurahByNumber(surah)
+
+  // 1) السورة غير موجودة في القرآن أصلاً
+  if (!surahData) {
+    return c.json({
+      ok: false,
+      error: 'surah_not_found',
+      message: `السورة رقم ${surah} غير موجودة في القرآن. القرآن الكريم يحتوي على 114 سورة فقط.`,
+      params: { surah, ayah },
+    }, 404)
+  }
+
+  // 2) رقم الآية غير صحيح قرآنيًا في هذه السورة
+  if (!ayahExistsInQuran(surah, ayah)) {
+    return c.json({
+      ok: false,
+      error: 'ayah_number_invalid',
+      message: `سورة ${surahData.name} تحتوي على ${surahData.ayahCount} آية فقط، والآية رقم ${ayah} غير موجودة فيها.`,
+      params: { surah, ayah },
+      surah: { number: surahData.number, name: surahData.name, ayahCount: surahData.ayahCount },
+    }, 404)
+  }
+
+  // 3) الآية صحيحة قرآنيًا لكن نصها غير متوفر في العينة الحالية
   const a = getAyah(surah, ayah)
   const tafseers = getTafseersByAyah(surah, ayah)
-  return c.json({ ok: true, data: { ayah: a, tafseers } })
+  if (!a) {
+    const cov = getSurahCoverage(surah)
+    return c.json({
+      ok: false,
+      error: 'ayah_text_unavailable',
+      message: `الآية ${ayah} من سورة ${surahData.name} موجودة في القرآن، لكن نصها غير متوفر في العينة الحالية للتطبيق.`,
+      params: { surah, ayah },
+      surah: { number: surahData.number, name: surahData.name, ayahCount: surahData.ayahCount },
+      coverage: cov ? {
+        availableAyahs: cov.availableAyahs,
+        totalAyahs: cov.totalAyahs,
+        ayahCoveragePercent: cov.ayahCoveragePercent,
+        completeness: cov.completeness,
+      } : undefined,
+      tafseersCount: tafseers.length,
+      tafseers: tafseers.length ? tafseers : undefined,
+    }, 404)
+  }
+
+  // 4) كل شيء متوفر
+  return c.json({
+    ok: true,
+    data: {
+      ayah: a,
+      tafseers,
+      surah: { number: surahData.number, name: surahData.name, ayahCount: surahData.ayahCount, type: surahData.type },
+      tafseersCount: tafseers.length,
+    },
+  })
 })
 
 app.get('/api/suggest', c => {
