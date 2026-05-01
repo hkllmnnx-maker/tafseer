@@ -177,17 +177,144 @@
     }
   }
 
-  // ============== Search debouncing on home ==============
+  // ============== Search Autocomplete (suggestions) ==============
   function initSearchSuggestions() {
-    const input = document.querySelector('.hero-search input[name="q"]')
-    if (!input) return
-    let t
-    input.addEventListener('input', e => {
-      clearTimeout(t)
-      t = setTimeout(() => {
-        // could fetch suggestions; placeholder for future
-      }, 250)
+    // ربط لكل حقل بحث ضمن form action="/search"
+    const inputs = document.querySelectorAll('form[action="/search"] input[name="q"]')
+    if (!inputs.length) return
+    inputs.forEach(setupSuggestInput)
+  }
+
+  function setupSuggestInput(input) {
+    if (!input || input._suggestInited) return
+    input._suggestInited = true
+    input.setAttribute('autocomplete', 'off')
+
+    // إنشاء صندوق الاقتراحات
+    const wrap = document.createElement('div')
+    wrap.className = 'suggest-box'
+    wrap.setAttribute('role', 'listbox')
+    wrap.style.display = 'none'
+    // وضعه في موقع نسبي لمربع البحث
+    const container = input.closest('.search-box') || input.parentElement
+    if (!container) return
+    if (getComputedStyle(container).position === 'static') {
+      container.style.position = 'relative'
+    }
+    container.appendChild(wrap)
+
+    let timer = null
+    let lastQuery = ''
+    let activeIndex = -1
+    let currentItems = []
+    let abortCtrl = null
+
+    function close() {
+      wrap.style.display = 'none'
+      wrap.innerHTML = ''
+      activeIndex = -1
+      currentItems = []
+    }
+
+    function render(items) {
+      currentItems = items
+      activeIndex = -1
+      if (!items.length) { close(); return }
+      const html = items.map((s, i) => {
+        const typeLabel = ({
+          surah: 'سورة', ayah: 'آية', book: 'كتاب', author: 'مؤلف', topic: 'موضوع', category: 'موضوع',
+        })[s.type] || ''
+        return (
+          '<a class="suggest-item" data-i="' + i + '" href="' + escapeAttr(s.href) + '">' +
+            '<span class="suggest-type suggest-type-' + s.type + '">' + typeLabel + '</span>' +
+            '<span class="suggest-content">' +
+              '<span class="suggest-label">' + escapeHtmlClient(s.label) + '</span>' +
+              (s.sub ? '<span class="suggest-sub">' + escapeHtmlClient(s.sub) + '</span>' : '') +
+            '</span>' +
+          '</a>'
+        )
+      }).join('')
+      wrap.innerHTML = html
+      wrap.style.display = 'block'
+      // hover highlights
+      wrap.querySelectorAll('.suggest-item').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          activeIndex = parseInt(el.getAttribute('data-i') || '-1', 10)
+          updateActive()
+        })
+      })
+    }
+
+    function updateActive() {
+      const items = wrap.querySelectorAll('.suggest-item')
+      items.forEach((el, i) => el.classList.toggle('is-active', i === activeIndex))
+      const cur = items[activeIndex]
+      if (cur && typeof cur.scrollIntoView === 'function') {
+        cur.scrollIntoView({ block: 'nearest' })
+      }
+    }
+
+    async function fetchSuggestions(q) {
+      if (abortCtrl) { try { abortCtrl.abort() } catch (e) {} }
+      abortCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null
+      try {
+        const res = await fetch('/api/suggest?q=' + encodeURIComponent(q) + '&limit=10', {
+          signal: abortCtrl ? abortCtrl.signal : undefined,
+          headers: { Accept: 'application/json' },
+        })
+        if (!res.ok) return []
+        const json = await res.json()
+        if (!json || !json.ok) return []
+        return (json.data && json.data.items) || []
+      } catch (e) { return [] }
+    }
+
+    input.addEventListener('input', () => {
+      const q = (input.value || '').trim()
+      if (q === lastQuery) return
+      lastQuery = q
+      clearTimeout(timer)
+      if (!q) { close(); return }
+      timer = setTimeout(async () => {
+        const items = await fetchSuggestions(q)
+        if ((input.value || '').trim() !== q) return // تغيّر النص أثناء الانتظار
+        render(items)
+      }, 180)
     })
+
+    input.addEventListener('focus', () => {
+      const q = (input.value || '').trim()
+      if (q && currentItems.length) wrap.style.display = 'block'
+    })
+
+    input.addEventListener('keydown', e => {
+      if (wrap.style.display === 'none') return
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        activeIndex = Math.min(currentItems.length - 1, activeIndex + 1)
+        updateActive()
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        activeIndex = Math.max(0, activeIndex - 1)
+        updateActive()
+      } else if (e.key === 'Enter') {
+        if (activeIndex >= 0 && currentItems[activeIndex]) {
+          e.preventDefault()
+          window.location.href = currentItems[activeIndex].href
+        }
+      } else if (e.key === 'Escape') {
+        close()
+        input.blur()
+      }
+    })
+
+    document.addEventListener('click', e => {
+      if (!container.contains(e.target)) close()
+    })
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   }
 
   // ============== Bookmarks (LocalStorage) ==============

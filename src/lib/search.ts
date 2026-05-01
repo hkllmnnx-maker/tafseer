@@ -231,3 +231,141 @@ export function getStats() {
     tafseersCount: TAFSEERS.length,
   }
 }
+
+// ============== Suggestions (Autocomplete) ==============
+export type SuggestionType = 'surah' | 'ayah' | 'book' | 'author' | 'category' | 'topic'
+export interface Suggestion {
+  type: SuggestionType
+  label: string
+  sub?: string
+  href: string
+  score: number
+}
+
+// أكثر الكلمات شعبية للبحث (Topics) - مخزّنة في الذاكرة
+const POPULAR_TOPICS: { label: string; href: string }[] = [
+  { label: 'الرحمن', href: '/search?q=الرحمن' },
+  { label: 'الصلاة', href: '/search?q=الصلاة' },
+  { label: 'التوحيد', href: '/search?q=التوحيد' },
+  { label: 'الزكاة', href: '/search?q=الزكاة' },
+  { label: 'الصيام', href: '/search?q=الصيام' },
+  { label: 'التقوى', href: '/search?q=التقوى' },
+  { label: 'الإيمان', href: '/search?q=الإيمان' },
+  { label: 'الصبر', href: '/search?q=الصبر' },
+  { label: 'الجنة', href: '/search?q=الجنة' },
+  { label: 'النار', href: '/search?q=النار' },
+  { label: 'البسملة', href: '/search?q=البسملة' },
+  { label: 'آية الكرسي', href: '/ayah/2/255' },
+]
+
+export function suggest(q: string, limit: number = 10): Suggestion[] {
+  const query = (q || '').trim()
+  if (!query) return []
+  if (query.length > 80) return []
+  const nq = normalizeArabic(query)
+  if (!nq) return []
+  const results: Suggestion[] = []
+
+  // 1) السور (مطابقة بداية الاسم أعلى وزن)
+  for (const s of SURAHS) {
+    const nname = normalizeArabic(s.name)
+    if (nname.startsWith(nq)) {
+      results.push({
+        type: 'surah',
+        label: `سورة ${s.name}`,
+        sub: `${s.type} · ${s.ayahCount} آية`,
+        href: `/surahs/${s.number}`,
+        score: 100 + (10 - Math.min(10, Math.abs(nname.length - nq.length))),
+      })
+    } else if (nname.includes(nq)) {
+      results.push({
+        type: 'surah',
+        label: `سورة ${s.name}`,
+        sub: `${s.type} · ${s.ayahCount} آية`,
+        href: `/surahs/${s.number}`,
+        score: 70,
+      })
+    }
+  }
+
+  // 2) الكتب
+  for (const b of BOOKS) {
+    const ntitle = normalizeArabic(b.title)
+    if (ntitle.includes(nq)) {
+      results.push({
+        type: 'book',
+        label: b.title,
+        sub: b.fullTitle,
+        href: `/books/${b.id}`,
+        score: 60 + b.popularity,
+      })
+    }
+  }
+
+  // 3) المؤلفون
+  for (const a of AUTHORS) {
+    const nname = normalizeArabic(a.name)
+    const nfull = normalizeArabic(a.fullName || '')
+    if (nname.includes(nq) || (nfull && nfull.includes(nq))) {
+      results.push({
+        type: 'author',
+        label: a.name,
+        sub: `ت ${a.deathYear}هـ${a.origin ? ' · ' + a.origin : ''}`,
+        href: `/authors/${a.id}`,
+        score: 50,
+      })
+    }
+  }
+
+  // 4) المواضيع الشائعة
+  for (const t of POPULAR_TOPICS) {
+    const nlabel = normalizeArabic(t.label)
+    if (nlabel.startsWith(nq) || nlabel.includes(nq)) {
+      results.push({
+        type: 'topic',
+        label: t.label,
+        sub: 'موضوع شائع',
+        href: t.href,
+        score: nlabel.startsWith(nq) ? 85 : 65,
+      })
+    }
+  }
+
+  // 5) الآيات (مطابقة في النص) - حد أقصى 5 لتجنب الإغراق
+  let ayahHits = 0
+  for (const a of AYAHS) {
+    if (ayahHits >= 5) break
+    const ntext = normalizeArabic(a.text)
+    if (ntext.includes(nq)) {
+      const surah = SURAHS.find(s => s.number === a.surah)
+      results.push({
+        type: 'ayah',
+        label: a.text.length > 60 ? a.text.slice(0, 60) + '…' : a.text,
+        sub: surah ? `سورة ${surah.name} - آية ${a.number}` : `آية ${a.number}`,
+        href: `/ayah/${a.surah}/${a.number}?q=${encodeURIComponent(query)}`,
+        score: 40,
+      })
+      ayahHits++
+    }
+  }
+
+  // 6) دائماً نضيف خيار "ابحث عن" كآخر اقتراح
+  results.push({
+    type: 'topic',
+    label: `ابحث عن: «${query}»`,
+    sub: 'في كل التفاسير والآيات',
+    href: `/search?q=${encodeURIComponent(query)}`,
+    score: 1,
+  })
+
+  // إزالة التكرار (نفس href)
+  const seen = new Set<string>()
+  const unique: Suggestion[] = []
+  for (const r of results.sort((a, b) => b.score - a.score)) {
+    if (seen.has(r.href)) continue
+    seen.add(r.href)
+    unique.push(r)
+    if (unique.length >= limit) break
+  }
+  return unique
+}

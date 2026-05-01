@@ -1288,3 +1288,80 @@ p { color: var(--text-secondary); }
   color: var(--text-tertiary);
   margin-top: 2px;
 }
+
+/* ============== Search Suggestions (Autocomplete) ============== */
+.suggest-box {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  max-height: 420px;
+  overflow-y: auto;
+  z-index: 100;
+  padding: 0.35rem;
+}
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.suggest-item:hover, .suggest-item.is-active {
+  background: var(--bg-secondary);
+}
+.suggest-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+.suggest-type-book   { background: var(--gold-light); color: var(--gold-dark); }
+.suggest-type-author { background: rgba(26, 95, 180, 0.12); color: var(--info); }
+.suggest-type-ayah   { background: rgba(22, 121, 77, 0.12); color: var(--success); }
+.suggest-type-topic, .suggest-type-category {
+  background: rgba(185, 122, 26, 0.12); color: var(--warning);
+}
+.suggest-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.suggest-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggest-sub {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+[data-theme="dark"] .suggest-type-book   { background: rgba(212, 168, 90, 0.18); color: var(--gold-secondary); }
+[data-theme="dark"] .suggest-type-author { background: rgba(26, 95, 180, 0.22); color: #6daff5; }
+[data-theme="dark"] .suggest-type-ayah   { background: rgba(42, 153, 104, 0.22); color: var(--accent-tertiary); }
+[data-theme="dark"] .suggest-type-topic, [data-theme="dark"] .suggest-type-category {
+  background: rgba(185, 122, 26, 0.22); color: var(--gold-secondary);
+}

@@ -16,7 +16,7 @@ import { AboutPage } from './views/pages/about'
 import { BookmarksPage } from './views/pages/bookmarks'
 import { HistoryPage } from './views/pages/history'
 
-import { search, getStats, type SearchFilters } from './lib/search'
+import { search, suggest, getStats, type SearchFilters } from './lib/search'
 import { SURAHS, getSurahByNumber } from './data/surahs'
 import { BOOKS } from './data/books'
 import { AUTHORS } from './data/authors'
@@ -206,6 +206,15 @@ app.get('/api/ayah/:surah/:ayah', c => {
   const a = getAyah(surah, ayah)
   const tafseers = getTafseersByAyah(surah, ayah)
   return c.json({ ok: true, data: { ayah: a, tafseers } })
+})
+
+app.get('/api/suggest', c => {
+  const q = c.req.query('q') || ''
+  if (q.length > 80) return c.json({ ok: false, error: 'query_too_long' }, 400)
+  const limit = Math.min(20, Math.max(1, parseIntSafe(c.req.query('limit')) || 10))
+  const items = suggest(q, limit)
+  c.header('Cache-Control', 'public, max-age=60')
+  return c.json({ ok: true, data: { q, items } })
 })
 
 app.get('/api/search', c => {
