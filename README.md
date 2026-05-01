@@ -236,11 +236,75 @@ npm run deploy                   # نشر إلى Cloudflare Pages
 
 ---
 
-## 12) ما لم يُنفَّذ بعد (Roadmap)
-- ربط Cloudflare D1 وإنشاء migrations (الجداول جاهزة بنيويًا).
-- لوحة إدارة (CRUD للكتب والمؤلفين، استيراد JSON/CSV/SQLite).
+## 12) البنية العلمية والتحقق (Scientific Verification)
+
+> **إفصاح مهم**: البيانات الحالية **عيّنة جزئية** (100 إدخال تفسيري على 295 آية)
+> وغالبيتها **ملخّصات مكتوبة بأسلوب الفريق**، وليست نصوصًا أصلية حرفية من كتب التفسير.
+> راجع `/methodology` للتفاصيل الكاملة.
+
+### 12.1 حقول `TafseerEntry` العلمية
+| الحقل | القيم المسموحة | الغرض |
+|---|---|---|
+| `sourceType` | `original-text` / `summary` / `sample` / `under-review` | نوع المحتوى |
+| `verificationStatus` | `verified` / `partially-verified` / `unverified` / `disputed` | درجة التحقّق |
+| `sourceName` | اسم الكتاب الأصلي | الإسناد |
+| `isOriginalText` | boolean | هل النص حرفي؟ |
+| `reviewerNote` | string اختياري | ملاحظة المراجع |
+
+### 12.2 شارات التحقّق في الواجهة
+- شارة **نوع المصدر** (لون مختلف لكل نوع: ذهبي للأصلي، أصفر للسامبل، رمادي للملخّص).
+- شارة **حالة التحقّق** (أخضر/أصفر/أحمر) مع تحذير علمي بارز للنصوص غير المحقّقة.
+- **بانر إفصاح** على كل صفحة آية وبحث، يربط بـ `/methodology`.
+
+### 12.3 سكربتات التحقّق والاستيراد
+
+```bash
+npm run verify:data        # فحص شامل لسلامة البيانات (سور/آيات/كتب/تفاسير)
+npm run validate:import    # validate any JSON file: node scripts/importers/validate-import.mjs <file> [--dry-run]
+npm run validate:samples   # تشغيل سريع على fixtures/import-samples/valid-sample.json
+```
+
+`scripts/importers/validate-import.mjs` يفرض:
+- حقول إلزامية (`id`, `bookId`, `surah`, `ayah`, `text`, `sourceType`, `verificationStatus`).
+- نطاق سور (1..114) ومطابقة آية مع عدد آيات السورة.
+- whitelist لـ `sourceType` و `verificationStatus`.
+- منع IDs مكرّرة، حدّ أدنى لطول النص (5 أحرف).
+- تقرير ملوّن بالعربية، وضع `--dry-run` افتراضيًا (لا تعديل لقاعدة البيانات).
+
+### 12.4 Cloudflare D1 — هجرة المخطّط
+
+ملف الهجرة الأول: **`db/migrations/0001_initial_schema.sql`** (9.3 كيلوبايت).
+
+الجداول المُعرَّفة:
+| الجدول | الغرض |
+|---|---|
+| `surahs` | السور (PK: number, UNIQUE: name, CHECK: number 1..114) |
+| `ayahs` | الآيات (PK مركّب surah+ayah، FK→surahs، CHECK: ayah ≥ 1) |
+| `authors` | المؤلفون (PK، CHECK: deathYear بين 0..2100) |
+| `tafsir_books` | الكتب (PK، FK→authors، فهارس على author/school) |
+| `tafsir_entries` | إدخالات التفسير (PK، FK→books, ayahs، CHECK على sourceType/verificationStatus، فهرس مركّب على surah+ayah) |
+| `categories` | الموضوعات (PK، UNIQUE: slug) |
+| `book_categories` | M:N (book ↔ category) |
+| `import_jobs` | مهام الاستيراد (status, totals, started/finished_at) |
+| `audit_logs` | سجلّ التدقيق (actor, action, target, payload JSON) |
+
+كذلك جدول FTS5 افتراضي `tafsir_entries_fts` (افتراضي معلَّق حتى تشغيل D1) للبحث الكامل.
+
+**التشغيل (عند الجاهزية):**
+```bash
+wrangler d1 create tafseer-production       # ينشئ DB ويعطيك database_id
+# ضع database_id في wrangler.jsonc تحت d1_databases
+npm run db:migrate:local                    # تطبيق الهجرة محليًا
+npm run db:migrate:prod                     # تطبيق الهجرة على الإنتاج
+```
+
+---
+
+## 13) ما لم يُنفَّذ بعد (Roadmap)
+- تشغيل D1 فعليًا (المخطّط جاهز، يحتاج `wrangler d1 create` فقط).
+- لوحة إدارة محمية بـ Cloudflare Access (CRUD، استيراد JSON/CSV/SQLite).
 - مزامنة المفضّلة وسجل التصفح عبر حساب مستخدم (Auth).
-- توسيع البيانات لتشمل القرآن كاملاً (~6236 آية، أكثر من 12 كتاب تفسير).
+- توسيع البيانات لتشمل القرآن كاملاً (~6236 آية، 30+ كتاب).
 - محرك بحث خارجي (Meilisearch/Typesense) للأداء على ملايين السجلات.
 - دعم الصوتيات (تلاوات + قراءة آلية للتفاسير).
 - ترجمة الواجهة (إنجليزية/تركية/أوردو).
@@ -248,6 +312,18 @@ npm run deploy                   # نشر إلى Cloudflare Pages
 ---
 
 ## 13) سجل التحديثات
+
+### v1.5 — 1 مايو 2026
+- ✅ **التحقّق العلمي**: حقول `sourceType`, `verificationStatus`, `sourceName`, `isOriginalText`, `reviewerNote` على كل تفسير + قيم افتراضية محافِظة للإدخالات القديمة.
+- ✅ **API محسَّن**: `/api/ayah/:s/:a` يعيد 404 صحيح (`surah_not_found`, `ayah_number_invalid`, `ayah_text_unavailable`)، و`/api/search` يدعم `sourceTypes[]` + `verificationStatuses[]` عبر `sanitizeFilters`.
+- ✅ **واجهة التحقّق**: شارات SourceType/Verification، تحذير بارز للنصوص غير المحقّقة، بانر إفصاح علمي على صفحات الآية والبحث، نسخ مع المصدر الكامل.
+- ✅ **D1 schema**: `db/migrations/0001_initial_schema.sql` (9 جداول + قيود + فهارس + FTS5).
+- ✅ **بنية الاستيراد**: `scripts/importers/validate-import.mjs` (dry-run، رسائل عربية، whitelist، duplicate detection)، `fixtures/import-samples/{valid,invalid}-sample.json`.
+- ✅ **التحقّق التلقائي**: `scripts/verify-data.mjs` + `npm run verify:data`، فحص شامل بدون أخطاء.
+- ✅ **لوحة إحصاءات علمية**: نسبة النصوص الأصلية/الملخّصات/العيّنات، قيد المراجعة، التحقّق الكامل، نسبة التغطية.
+- ✅ **صفحة قراءة محسَّنة**: شريط تقدّم تغطية، شارة اكتمال، تنبيه عيّنة جزئية.
+- ✅ **SECURITY.md** شامل (12 قسمًا: secrets، vuln disclosure، CSP، CORS، LocalStorage، import restrictions، PII).
+- ✅ **sitemap محسَّن**: يضم `/methodology`، يقتصر على الآيات الموجودة في العيّنة.
 
 ### v1.4 — 1 مايو 2026
 - ✅ **توسيع الآيات** من ~50 إلى **295 آية** (Juz Amma كامل + آيات مفتاحية من سور كبرى).
