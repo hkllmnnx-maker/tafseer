@@ -2,9 +2,11 @@
 import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import {
   IconDatabase, IconBook, IconUser, IconLayers, IconCalendar,
-  IconQuote, IconBookOpen, IconArrowLeft,
+  IconQuote, IconBookOpen, IconArrowLeft, IconShield,
 } from '../icons'
 import { getDetailedStats } from '../../lib/search'
+import { getSourceTypeMeta, getVerificationMeta } from '../../lib/scientific'
+import { SourceTypeBadge, VerificationBadge } from '../components/badges'
 
 export const DashboardPage = () => {
   const s = getDetailedStats()
@@ -29,7 +31,7 @@ export const DashboardPage = () => {
           </h1>
           <p class="page-subtitle">
             نظرة شاملة على محتوى التطبيق: عدد التفاسير لكل كتاب، توزيع المؤلفين بالقرون،
-            المدارس التفسيرية، والسور الأكثر تغطية. البيانات تُحسب وقت الطلب من الذاكرة.
+            المدارس التفسيرية، السور الأكثر تغطية، وحالة التوثيق العلمي. البيانات تُحسب وقت الطلب من الذاكرة.
           </p>
         </div>
 
@@ -39,8 +41,82 @@ export const DashboardPage = () => {
           <DashStat icon={<IconUser />} label="مؤلف ومفسر" value={s.totals.authors} />
           <DashStat icon={<IconBookOpen />} label="سورة" value={s.totals.surahs} />
           <DashStat icon={<IconQuote />} label="نص تفسير" value={s.totals.tafseers} />
-          <DashStat icon={<IconLayers />} label="آية مغطّاة" value={`${s.ayahsCoveredCount} / ${s.totals.ayahs}`} sub={`نسبة التغطية: ${(s.ayahsCoverageRatio * 100).toFixed(1)}%`} />
+          <DashStat icon={<IconLayers />} label="آية مغطّاة (في العينة)" value={`${s.ayahsCoveredCount} / ${s.totals.ayahs}`} sub={`نسبة العينة: ${(s.ayahsCoverageRatio * 100).toFixed(1)}%`} />
           <DashStat icon={<IconCalendar />} label="متوسط طول التفسير" value={`${s.totals.avgTafseerLength} حرف`} sub={`الإجمالي: ${s.totals.totalTafseerChars.toLocaleString('ar')} حرف`} />
+        </section>
+
+        {/* Scientific verification snapshot */}
+        <section class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+          <h3 style="margin:0 0 1rem 0;display:flex;align-items:center;gap:.5rem">
+            <IconShield size={18} />
+            ملخّص التوثيق العلمي
+          </h3>
+          <div class="dashboard-grid" style="margin-bottom:1rem">
+            <DashStat icon={<IconQuote />} label="نصوص أصلية" value={s.scientific.originalTexts} sub="مأخوذة من المصدر مباشرةً" />
+            <DashStat icon={<IconQuote />} label="ملخّصات" value={s.scientific.summaries} sub="صياغة موجزة من المصدر" />
+            <DashStat icon={<IconQuote />} label="عيّنات" value={s.scientific.samples} sub="بيانات تجريبية للعرض" />
+            <DashStat icon={<IconQuote />} label="بانتظار المراجعة" value={s.scientific.pendingReview} sub="تحتاج تدقيقًا قبل النشر" />
+            <DashStat icon={<IconShield />} label="موثّق" value={s.scientific.verified} sub="يطابق المصدر الأصلي" />
+            <DashStat icon={<IconShield />} label="موثّق جزئيًا" value={s.scientific.partiallyVerified} sub="جزء من النص دون مراجعة كاملة" />
+            <DashStat icon={<IconShield />} label="غير موثّق" value={s.scientific.unverified} sub="لم تتم مراجعته بعد" />
+            <DashStat
+              icon={<IconBookOpen />}
+              label="تغطية القرآن الكلية"
+              value={`${s.scientific.quranCoveragePercent}%`}
+              sub={`${s.scientific.quranAyahsCovered} / ${s.scientific.quranAyahsTotal} آية`}
+            />
+          </div>
+          <div class="coverage-bar mb-4" aria-label={`تغطية القرآن ${s.scientific.quranCoveragePercent}%`}>
+            <span style={`width:${Math.max(2, Math.min(100, s.scientific.quranCoveragePercent))}%`}></span>
+          </div>
+
+          <h4 style="margin:1rem 0 .5rem">توزيع نوع المصدر</h4>
+          <div class="bar-list">
+            {s.bySourceType.map(b => {
+              const meta = getSourceTypeMeta(b.type)
+              return (
+                <div class="bar-row">
+                  <div class="bar-label" title={meta.description}>
+                    <SourceTypeBadge type={b.type} />
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" style={`width:${b.percent}%`}></div>
+                  </div>
+                  <div class="bar-value">
+                    <strong>{b.count}</strong>
+                    <span class="text-tertiary text-xs"> · {b.percent}%</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <h4 style="margin:1.25rem 0 .5rem">توزيع حالة التحقق</h4>
+          <div class="bar-list">
+            {s.byVerification.map(b => {
+              const meta = getVerificationMeta(b.status)
+              return (
+                <div class="bar-row">
+                  <div class="bar-label" title={meta.description}>
+                    <VerificationBadge status={b.status} />
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill bar-fill-gold" style={`width:${b.percent}%`}></div>
+                  </div>
+                  <div class="bar-value">
+                    <strong>{b.count}</strong>
+                    <span class="text-tertiary text-xs"> · {b.percent}%</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <p class="text-tertiary text-sm mt-4">
+            ملاحظة: التغطية الكلية للقرآن تُحسب من أصل {s.scientific.quranAyahsTotal} آية في 114 سورة.
+            الأرقام أعلاه تعكس العيّنة الحالية في التطبيق.
+            <a href="/methodology" class="text-accent" style="margin-inline-start:.4rem">منهجيتنا في التوثيق ↗</a>
+          </p>
         </section>
 
         {/* Export */}

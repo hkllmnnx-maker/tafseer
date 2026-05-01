@@ -348,6 +348,22 @@ export interface DetailedStats {
   topSurahs: Array<{ surah: number; surahName: string; tafseersCount: number; ayahsCovered: number }>
   ayahsCoveredCount: number
   ayahsCoverageRatio: number
+  bySourceType: Array<{ type: SourceType; count: number; percent: number }>
+  byVerification: Array<{ status: VerificationStatus; count: number; percent: number }>
+  scientific: {
+    originalTexts: number
+    summaries: number
+    samples: number
+    pendingReview: number
+    curated: number
+    verified: number
+    partiallyVerified: number
+    unverified: number
+    flagged: number
+    quranAyahsTotal: number
+    quranAyahsCovered: number
+    quranCoveragePercent: number
+  }
 }
 
 export function getDetailedStats(): DetailedStats {
@@ -449,6 +465,31 @@ export function getDetailedStats(): DetailedStats {
   for (const t of TAFSEERS) coveredPairs.add(`${t.surah}:${t.ayah}`)
   const ayahsCoveredCount = coveredPairs.size
 
+  // ============ Scientific verification breakdown ============
+  const total = TAFSEERS.length || 1
+  const stCounts = new Map<SourceType, number>()
+  const vCounts = new Map<VerificationStatus, number>()
+  for (const t of TAFSEERS) {
+    const st = (t.sourceType || 'sample') as SourceType
+    const vs = (t.verificationStatus || 'unverified') as VerificationStatus
+    stCounts.set(st, (stCounts.get(st) || 0) + 1)
+    vCounts.set(vs, (vCounts.get(vs) || 0) + 1)
+  }
+  const bySourceType = (SOURCE_TYPES as readonly SourceType[]).map(type => {
+    const count = stCounts.get(type) || 0
+    return { type, count, percent: +((count / total) * 100).toFixed(1) }
+  })
+  const byVerification = (VERIFICATION_STATUSES as readonly VerificationStatus[]).map(status => {
+    const count = vCounts.get(status) || 0
+    return { status, count, percent: +((count / total) * 100).toFixed(1) }
+  })
+
+  // إجمالي آيات القرآن = مجموع آيات السور
+  const quranAyahsTotal = SURAHS.reduce((sum, s) => sum + s.ayahCount, 0)
+  const quranCoveragePercent = quranAyahsTotal
+    ? +((ayahsCoveredCount / quranAyahsTotal) * 100).toFixed(2)
+    : 0
+
   return {
     totals: {
       books: BOOKS.length,
@@ -466,6 +507,22 @@ export function getDetailedStats(): DetailedStats {
     topSurahs,
     ayahsCoveredCount,
     ayahsCoverageRatio: AYAHS.length ? +(ayahsCoveredCount / AYAHS.length).toFixed(3) : 0,
+    bySourceType,
+    byVerification,
+    scientific: {
+      originalTexts: stCounts.get('original-text') || 0,
+      summaries: stCounts.get('summary') || 0,
+      samples: stCounts.get('sample') || 0,
+      pendingReview: stCounts.get('review-needed') || 0,
+      curated: stCounts.get('curated') || 0,
+      verified: vCounts.get('verified') || 0,
+      partiallyVerified: vCounts.get('partially-verified') || 0,
+      unverified: vCounts.get('unverified') || 0,
+      flagged: vCounts.get('flagged') || 0,
+      quranAyahsTotal,
+      quranAyahsCovered: ayahsCoveredCount,
+      quranCoveragePercent,
+    },
   }
 }
 
