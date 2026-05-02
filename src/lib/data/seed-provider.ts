@@ -78,17 +78,43 @@ export const seedProvider: DataProvider = {
       if (!tafseersByAyah[t.ayah]) tafseersByAyah[t.ayah] = []
       tafseersByAyah[t.ayah].push(t)
     }
-    return { surah: surahData, ayahs, tafseersByAyah, mode: 'seed' }
+    const coverage = (seedProvider.getQuranCoverageSummary?.() as QuranCoverageSummary | undefined)
+    return {
+      surah: surahData,
+      ayahs,
+      tafseersByAyah,
+      coverage,
+      isCompleteQuran: !!coverage?.isComplete,
+      mode: 'seed',
+    }
   },
 
   getQuranCoverageSummary(): QuranCoverageSummary {
     const ayahsCount = AYAHS.length
-    const surahsCovered = new Set(AYAHS.map(a => a.surah)).size
     const expectedAyahs = 6236 as const
+    const surahsCount = SURAHS.length
+    // احسب السور المغطّاة + الناقصة + الجزئية
+    const coveredSet = new Set<number>(AYAHS.map(a => a.surah))
+    const missingSurahs: number[] = []
+    const partialSurahs: number[] = []
+    for (const s of SURAHS) {
+      const present = AYAHS.filter(a => a.surah === s.number).length
+      if (present === 0) missingSurahs.push(s.number)
+      else if (present < s.ayahCount) partialSurahs.push(s.number)
+    }
+    // hasSourceMetadata: في seed mode البيانات لا تتضمّن source_name حاليًا
+    // (تُسجَّل بنية الآيات في src/data/ayahs.ts بدون مصدر مفصَّل)، فيكون false.
+    const hasSourceMetadata = AYAHS.some((a: any) =>
+      typeof a?.sourceName === 'string' && a.sourceName.trim().length > 0
+    )
     return {
       ayahsCount,
       expectedAyahs,
-      surahsCovered,
+      surahsCovered: coveredSet.size,
+      surahsCount,
+      missingSurahs,
+      partialSurahs,
+      hasSourceMetadata,
       isComplete: ayahsCount === expectedAyahs,
       coveragePercent: +((ayahsCount / expectedAyahs) * 100).toFixed(2),
       mode: 'seed',

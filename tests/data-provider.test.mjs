@@ -687,3 +687,114 @@ test('coverage math: empty DB → isComplete=false, 0%', () => {
   assert.equal(pct, 0)
   assert.equal(ayahsCount === expectedAyahs, false)
 })
+
+// ============================================================================
+// QuranCoverageSummary Extended Fields
+// ============================================================================
+// التحقّق من حقول التغطية الموسَّعة: surahsCount, missingSurahs, partialSurahs,
+// hasSourceMetadata.
+test('QuranCoverageSummary: types.ts declares extended fields', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/types.ts'), 'utf8')
+  for (const tok of [
+    'surahsCount',
+    'missingSurahs',
+    'partialSurahs',
+    'hasSourceMetadata',
+  ]) {
+    assert.ok(src.includes(tok),
+      `QuranCoverageSummary must declare extended field "${tok}"`)
+  }
+})
+
+test('ReadSurahPayload: declares optional coverage + isCompleteQuran fields', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/types.ts'), 'utf8')
+  assert.ok(/coverage\?:\s*QuranCoverageSummary/.test(src),
+    'ReadSurahPayload must declare optional coverage field')
+  assert.ok(/isCompleteQuran\?:\s*boolean/.test(src),
+    'ReadSurahPayload must declare optional isCompleteQuran field')
+})
+
+test('seed-provider: returns extended coverage fields (surahsCount/missing/partial/source)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/seed-provider.ts'), 'utf8')
+  for (const tok of [
+    'surahsCount',
+    'missingSurahs',
+    'partialSurahs',
+    'hasSourceMetadata',
+  ]) {
+    assert.ok(src.includes(tok),
+      `seed-provider.ts must populate "${tok}" in coverage summary`)
+  }
+})
+
+test('d1-provider: returns extended coverage fields (surahsCount/missing/partial/source)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/d1-provider.ts'), 'utf8')
+  for (const tok of [
+    'surahsCount',
+    'missingSurahs',
+    'partialSurahs',
+    'hasSourceMetadata',
+  ]) {
+    assert.ok(src.includes(tok),
+      `d1-provider.ts must populate "${tok}" in coverage summary`)
+  }
+  // d1 must use pragma_table_info to detect the source_name column safely
+  assert.ok(src.includes("pragma_table_info('ayahs')"),
+    'd1-provider must probe ayahs columns via pragma_table_info before reading source_name')
+})
+
+test('seed-provider getReadSurahPayload: includes coverage + isCompleteQuran', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/seed-provider.ts'), 'utf8')
+  assert.ok(src.includes('isCompleteQuran'),
+    'seed-provider getReadSurahPayload must populate isCompleteQuran')
+  assert.ok(/coverage[\s,]/.test(src),
+    'seed-provider getReadSurahPayload must include coverage field')
+})
+
+test('d1-provider getReadSurahPayload: includes coverage + isCompleteQuran', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/d1-provider.ts'), 'utf8')
+  assert.ok(src.includes('isCompleteQuran'),
+    'd1-provider getReadSurahPayload must populate isCompleteQuran')
+  assert.ok(/coverage[\s,]/.test(src),
+    'd1-provider getReadSurahPayload must include coverage field')
+})
+
+test('coverage math: extended fields semantics', () => {
+  const seed = ensureSeed()
+  const SURAHS_COUNT = 114
+  const ayahsCount = seed.ayahs.length
+  const presentMap = new Map()
+  for (const a of seed.ayahs) {
+    presentMap.set(a.surah, (presentMap.get(a.surah) || 0) + 1)
+  }
+  // محاكاة منطق seed-provider لاحتساب missing/partial
+  const missingSurahs = []
+  const partialSurahs = []
+  for (const s of seed.surahs) {
+    const present = presentMap.get(s.number) || 0
+    if (present === 0) missingSurahs.push(s.number)
+    else if (present < s.ayahCount) partialSurahs.push(s.number)
+  }
+  // العيّنة ليست مكتملة → نتوقّع وجود سور ناقصة كثيرة
+  assert.ok(Array.isArray(missingSurahs))
+  assert.ok(Array.isArray(partialSurahs))
+  assert.ok(missingSurahs.length + partialSurahs.length > 0,
+    'sample seed must have either missing or partial surahs')
+  assert.equal(SURAHS_COUNT, 114)
+  assert.ok(ayahsCount < 6236, 'sample seed should not be the full Quran')
+})
+
+// ============================================================================
+// /api/quran/coverage endpoint shape
+// ============================================================================
+test('/api/quran/coverage: index.tsx returns extended fields in fallback', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/index.tsx'), 'utf8')
+  // التحقّق من تسجيل المسار
+  assert.ok(src.includes("/api/quran/coverage"),
+    '/api/quran/coverage route must be registered')
+  // الفالباك يجب أن يحوي الحقول الجديدة لتجنّب undefined على الواجهة
+  for (const tok of ['surahsCount', 'missingSurahs', 'partialSurahs', 'hasSourceMetadata']) {
+    assert.ok(src.includes(tok),
+      `/api/quran/coverage fallback must include "${tok}"`)
+  }
+})

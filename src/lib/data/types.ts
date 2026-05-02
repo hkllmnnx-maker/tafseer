@@ -32,6 +32,14 @@ export interface QuranCoverageSummary {
   expectedAyahs: 6236
   /** عدد السور التي تحوي آية واحدة على الأقل. */
   surahsCovered: number
+  /** العدد الإجمالي للسور المتوقَّع (ثابت 114). */
+  surahsCount: number
+  /** أرقام السور التي لا تحتوي على أي آية. */
+  missingSurahs: number[]
+  /** أرقام السور التي تحتوي على بعض الآيات لكن غير مكتملة. */
+  partialSurahs: number[]
+  /** هل توجد بيانات بمصدر (source_name/source_url) لآية واحدة على الأقل؟ */
+  hasSourceMetadata: boolean
   /** هل القرآن كامل (ayahsCount === 6236)؟ */
   isComplete: boolean
   /** نسبة التغطية ٪ (مدوَّرة لرقمين). */
@@ -46,6 +54,10 @@ export interface ReadSurahPayload {
   ayahs: Ayah[]
   /** التفاسير مفهرسة حسب رقم الآية لتسهيل العرض. */
   tafseersByAyah: Record<number, TafseerEntry[]>
+  /** ملخّص تغطية القرآن (للسماح للواجهة بإظهار شارة الاكتمال). */
+  coverage?: QuranCoverageSummary
+  /** اختصار: هل القرآن كامل في الـ provider الحالي؟ */
+  isCompleteQuran?: boolean
   /** اسم المزوّد. */
   mode: 'seed' | 'd1'
 }

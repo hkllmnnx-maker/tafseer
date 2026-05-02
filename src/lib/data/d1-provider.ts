@@ -512,17 +512,25 @@ export function makeD1Provider(db: D1Database): DataProvider {
      */
     async getReadSurahPayload(surah: number): Promise<ReadSurahPayload> {
       try {
-        const [surahData, ayahs, tafseers] = await Promise.all([
+        const [surahData, ayahs, tafseers, coverage] = await Promise.all([
           this.getSurahByNumber(surah) as Promise<Surah | undefined>,
           this.listAyahsForSurah(surah) as Promise<Ayah[]>,
           this.getTafseersForSurah(surah) as Promise<TafseerEntry[]>,
+          (this.getQuranCoverageSummary?.() ?? Promise.resolve(undefined)) as Promise<QuranCoverageSummary | undefined>,
         ])
         const tafseersByAyah: Record<number, TafseerEntry[]> = {}
         for (const t of tafseers) {
           if (!tafseersByAyah[t.ayah]) tafseersByAyah[t.ayah] = []
           tafseersByAyah[t.ayah].push(t)
         }
-        return { surah: surahData, ayahs, tafseersByAyah, mode: 'd1' }
+        return {
+          surah: surahData,
+          ayahs,
+          tafseersByAyah,
+          coverage,
+          isCompleteQuran: !!coverage?.isComplete,
+          mode: 'd1',
+        }
       } catch {
         // fallback آمن إلى seed
         const seed = seedProvider.getReadSurahPayload?.(surah)
@@ -533,21 +541,62 @@ export function makeD1Provider(db: D1Database): DataProvider {
     },
 
     /**
-     * ملخّص تغطية القرآن في D1: عدد الآيات، السور المغطّاة، اكتمال.
+     * ملخّص تغطية القرآن في D1: عدد الآيات، السور المغطّاة، اكتمال،
+     * ومعلومات إضافية عن السور الناقصة/الجزئية ووجود metadata للمصدر.
      */
     async getQuranCoverageSummary(): Promise<QuranCoverageSummary> {
       const expectedAyahs = 6236 as const
       try {
-        const [a, s] = await Promise.all([
+        // 4 استعلامات متوازية:
+        //   - عدد الآيات الإجمالي
+        //   - السور المغطّاة (DISTINCT)
+        //   - عدد الآيات لكل سورة (لاكتشاف السور الجزئية/الناقصة)
+        //   - وجود source_name لأي آية (hasSourceMetadata)
+        const [aRow, sRow, perSurah, srcRow] = await Promise.all([
           db.prepare('SELECT COUNT(*) AS c FROM ayahs').first<any>(),
           db.prepare('SELECT COUNT(DISTINCT surah_number) AS c FROM ayahs').first<any>(),
+          db.prepare('SELECT surah_number, COUNT(*) AS c FROM ayahs GROUP BY surah_number').all<any>(),
+          // pragma_table_info يحمي من فشل عند غياب العمود (قبل migration 0003)
+          db.prepare(
+            "SELECT COUNT(*) AS c FROM pragma_table_info('ayahs') WHERE name = 'source_name'"
+          ).first<any>(),
         ])
-        const ayahsCount = Number(a?.c || 0)
-        const surahsCovered = Number(s?.c || 0)
+        const ayahsCount = Number(aRow?.c || 0)
+        const surahsCovered = Number(sRow?.c || 0)
+
+        // تحديد السور الناقصة/الجزئية بمقارنة مع SURAHS من seed.
+        const SURAHS = (seedProvider.listSurahs() as Surah[])
+        const counts = new Map<number, number>()
+        for (const r of (perSurah?.results || [])) {
+          counts.set(Number(r.surah_number), Number(r.c || 0))
+        }
+        const missingSurahs: number[] = []
+        const partialSurahs: number[] = []
+        for (const s of SURAHS) {
+          const present = counts.get(s.number) || 0
+          if (present === 0) missingSurahs.push(s.number)
+          else if (present < s.ayahCount) partialSurahs.push(s.number)
+        }
+
+        // hasSourceMetadata: نفحص أن العمود موجود + وجود قيمة غير فارغة.
+        let hasSourceMetadata = false
+        if (Number(srcRow?.c || 0) > 0) {
+          try {
+            const sm = await db.prepare(
+              "SELECT 1 AS x FROM ayahs WHERE source_name IS NOT NULL AND TRIM(source_name) <> '' LIMIT 1"
+            ).first<any>()
+            hasSourceMetadata = !!sm
+          } catch { hasSourceMetadata = false }
+        }
+
         return {
           ayahsCount,
           expectedAyahs,
           surahsCovered,
+          surahsCount: SURAHS.length,
+          missingSurahs,
+          partialSurahs,
+          hasSourceMetadata,
           isComplete: ayahsCount === expectedAyahs,
           coveragePercent: +((ayahsCount / expectedAyahs) * 100).toFixed(2),
           mode: 'd1',
@@ -556,7 +605,18 @@ export function makeD1Provider(db: D1Database): DataProvider {
         const fallback = seedProvider.getQuranCoverageSummary?.() as QuranCoverageSummary | undefined
         return fallback
           ? { ...fallback, mode: 'd1' }
-          : { ayahsCount: 0, expectedAyahs, surahsCovered: 0, isComplete: false, coveragePercent: 0, mode: 'd1' }
+          : {
+              ayahsCount: 0,
+              expectedAyahs,
+              surahsCovered: 0,
+              surahsCount: 114,
+              missingSurahs: [],
+              partialSurahs: [],
+              hasSourceMetadata: false,
+              isComplete: false,
+              coveragePercent: 0,
+              mode: 'd1',
+            }
       }
     },
 

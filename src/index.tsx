@@ -468,8 +468,16 @@ app.get('/api/quran/coverage', async c => {
   const summary = data.getQuranCoverageSummary
     ? await data.getQuranCoverageSummary()
     : {
-        ayahsCount: 0, expectedAyahs: 6236, surahsCovered: 0,
-        isComplete: false, coveragePercent: 0, mode: data.name,
+        ayahsCount: 0,
+        expectedAyahs: 6236,
+        surahsCovered: 0,
+        surahsCount: 114,
+        missingSurahs: [],
+        partialSurahs: [],
+        hasSourceMetadata: false,
+        isComplete: false,
+        coveragePercent: 0,
+        mode: data.name,
       }
   return c.json({ ok: true, data: summary, mode: data.name })
 })
