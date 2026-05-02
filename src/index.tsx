@@ -214,8 +214,10 @@ app.get('/surahs/:n', c => {
 app.get('/read/:n', c => {
   const n = parseIntSafe(c.req.param('n')) || 0
   const s = getSurahByNumber(n)
+  const filterParam = c.req.query('filter')
+  const filter = (filterParam === 'summaries' || filterParam === 'verified') ? filterParam : 'all'
   return c.render(
-    <ReadPage surahNumber={n} />,
+    <ReadPage surahNumber={n} filter={filter as any} />,
     {
       title: s ? `قراءة سورة ${s.name}` : 'قراءة',
       description: s ? `قراءة متسلسلة لسورة ${s.name} مع التفاسير المدمجة لكل آية.` : undefined,

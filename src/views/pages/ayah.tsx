@@ -70,6 +70,10 @@ export const AyahPage = ({
   const nextAyah = ayah < surahData.ayahCount ? { surah, ayah: ayah + 1 } : null
   const coverage = getSurahCoverage(surah)
   const hasAnyWarning = tafseers.some(t => t.verificationStatus !== 'verified')
+  const verifiedCount = tafseers.filter(t => t.verificationStatus === 'verified').length
+  const originalCount = tafseers.filter(t => t.sourceType === 'original-text').length
+  const summaryCount = tafseers.filter(t => t.sourceType === 'summary' || t.sourceType === 'sample').length
+  const ayahHas = !!ayahData
 
   return (
     <>
@@ -81,6 +85,21 @@ export const AyahPage = ({
           { label: `سورة ${surahData.name}`, href: `/surahs/${surah}` },
           { label: `آية ${ayah}` },
         ]} />
+
+        {/* Info Bar — بيان سريع عن التغطية وتوفر النص */}
+        <div class="card mb-4" style="padding:.85rem 1rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;font-size:.85rem">
+          <span class="badge"><IconHash size={12} /> سورة {surah} : آية {ayah}</span>
+          <span class="badge" title="عدد التفاسير المتوفرة">{tafseers.length} تفسير</span>
+          {ayahHas
+            ? <span class="badge badge-success">نص الآية متوفر</span>
+            : <span class="badge badge-warn">نص الآية غير متوفر</span>}
+          {verifiedCount > 0 ? <span class="badge badge-success">{verifiedCount} موثّق</span> : null}
+          {originalCount > 0 ? <span class="badge badge-gold">{originalCount} نص أصلي</span> : null}
+          {summaryCount > 0 ? <span class="badge">{summaryCount} ملخّص/عيّنة</span> : null}
+          <a href="/methodology" class="text-accent text-xs" style="margin-inline-start:auto" title="معاني الشارات ومنهجية التحقّق">
+            ما معنى هذه الشارات؟ ↗
+          </a>
+        </div>
 
         {/* Reading Tools */}
         <div class="flex flex-wrap items-center gap-2 mb-4">
@@ -174,6 +193,23 @@ export const AyahPage = ({
             </div>
 
             {hasAnyWarning ? <ScientificDisclaimer /> : null}
+
+            {/* فهرس التفاسير — تنقّل سريع داخل الصفحة */}
+            {tafseers.length > 1 ? (
+              <nav class="card mb-4" style="padding:.6rem .9rem" aria-label="فهرس التفاسير">
+                <div class="text-xs text-tertiary mb-2">فهرس سريع:</div>
+                <div class="flex flex-wrap gap-2">
+                  {tafseers.map(t => {
+                    const b = BOOKS.find(x => x.id === t.bookId)
+                    return (
+                      <a href={`#tafseer-body-${t.id}`} class="chip" style="text-decoration:none;font-size:.8rem">
+                        {b?.title || t.bookId}
+                      </a>
+                    )
+                  })}
+                </div>
+              </nav>
+            ) : null}
 
             <div class="tafseer-list" id="tafseer-list">
               {tafseers.map(t => {

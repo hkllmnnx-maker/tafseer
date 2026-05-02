@@ -15,7 +15,13 @@ function toArabicNumber(n: number): string {
   return n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d, 10)])
 }
 
-export const ReadPage = ({ surahNumber }: { surahNumber: number }) => {
+export const ReadPage = ({
+  surahNumber,
+  filter = 'all',
+}: {
+  surahNumber: number
+  filter?: 'all' | 'summaries' | 'verified'
+}) => {
   const surah = getSurahByNumber(surahNumber)
   if (!surah) {
     return (
@@ -124,6 +130,28 @@ export const ReadPage = ({ surahNumber }: { surahNumber: number }) => {
           </span>
         </div>
 
+        {/* فلاتر التفاسير (الكل / ملخّصات / موثّق فقط) */}
+        <div class="flex flex-wrap gap-2 mt-3 mb-4" role="tablist" aria-label="فلاتر عرض التفاسير">
+          <a href={`/read/${surah.number}`}
+             class={`chip ${filter === 'all' ? 'active' : ''}`}
+             style="text-decoration:none" role="tab" aria-selected={filter === 'all'}>
+            كل التفاسير
+          </a>
+          <a href={`/read/${surah.number}?filter=summaries`}
+             class={`chip ${filter === 'summaries' ? 'active' : ''}`}
+             style="text-decoration:none" role="tab" aria-selected={filter === 'summaries'}>
+            الملخّصات فقط
+          </a>
+          <a href={`/read/${surah.number}?filter=verified`}
+             class={`chip ${filter === 'verified' ? 'active' : ''}`}
+             style="text-decoration:none" role="tab" aria-selected={filter === 'verified'}>
+            الموثّقة فقط
+          </a>
+          <span class="text-xs text-tertiary" style="margin-inline-start:auto">
+            فلتر عرض التفاسير تحت كل آية
+          </span>
+        </div>
+
         {/* TOC for ayahs */}
         {ayahs.length > 0 ? (
           <details class="card mb-6" style="padding:1rem 1.25rem">
@@ -149,7 +177,12 @@ export const ReadPage = ({ surahNumber }: { surahNumber: number }) => {
         ) : (
           <div class="read-ayahs-list">
             {ayahs.map((a, idx) => {
-              const tafs = TAFSEERS.filter(t => t.surah === a.surah && t.ayah === a.number)
+              let tafs = TAFSEERS.filter(t => t.surah === a.surah && t.ayah === a.number)
+              if (filter === 'summaries') {
+                tafs = tafs.filter(t => t.sourceType === 'summary' || t.sourceType === 'sample' || !t.sourceType)
+              } else if (filter === 'verified') {
+                tafs = tafs.filter(t => t.verificationStatus === 'verified')
+              }
               return (
                 <section
                   id={`ayah-${a.number}`}

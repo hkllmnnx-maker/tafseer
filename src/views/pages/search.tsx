@@ -358,6 +358,11 @@ const Pagination = ({ page, totalPages, buildQuery }: any) => {
   )
 }
 
+const SUGGESTED_QUERIES = [
+  'الرحمة', 'التقوى', 'الصبر', 'العدل',
+  'التوحيد', 'الإخلاص', 'الإنفاق', 'العلم'
+]
+
 const EmptyResults = ({ q, hasFilters }: { q: string; hasFilters: boolean }) => (
   <div class="empty-state card">
     <div class="empty-icon"><IconSearch size={28} /></div>
@@ -365,11 +370,21 @@ const EmptyResults = ({ q, hasFilters }: { q: string; hasFilters: boolean }) => 
       <>
         <h3>لا توجد نتائج مطابقة</h3>
         <p>جرّب تغيير الكلمات المفتاحية أو إزالة بعض الفلاتر، أو فعّل البحث التقريبي (fuzzy).</p>
+        <div class="flex flex-wrap gap-2 justify-center mt-4">
+          <a href="/search" class="btn btn-ghost btn-sm">مسح كل الفلاتر</a>
+          {q ? <a href={`/search?q=${encodeURIComponent(q)}&fuzzy=1`} class="btn btn-secondary btn-sm">تجربة البحث التقريبي</a> : null}
+          <a href="/dashboard" class="btn btn-ghost btn-sm">لوحة التغطية</a>
+        </div>
       </>
     ) : (
       <>
         <h3>ابدأ البحث في كتب التفسير</h3>
         <p>اكتب كلمة في صندوق البحث، أو اختر سورة وآية محددة، أو فلتر حسب الكتاب أو المؤلف.</p>
+        <div class="flex flex-wrap gap-2 justify-center mt-4">
+          {SUGGESTED_QUERIES.map(s => (
+            <a href={`/search?q=${encodeURIComponent(s)}`} class="chip" style="text-decoration:none">{s}</a>
+          ))}
+        </div>
       </>
     )}
   </div>
@@ -379,6 +394,7 @@ function hasAnyFilter(f: SearchFilters): boolean {
   return !!(
     f.surah || f.ayahFrom || f.ayahTo ||
     (f.bookIds?.length) || (f.authorIds?.length) || (f.schools?.length) ||
+    (f.sourceTypes?.length) || (f.verificationStatuses?.length) ||
     f.centuryFrom || f.centuryTo
   )
 }
