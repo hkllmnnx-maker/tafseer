@@ -1,6 +1,10 @@
 -- ===========================================================================
 -- تفسير — ترحيل أوّلي لقاعدة بيانات Cloudflare D1
--- يحاكي بنية البيانات الحالية في src/data/* مع إضافة جداول الاستيراد والتدقيق.
+-- =========================================================================
+-- هذا الملف يحتوي على المخطط الأساسي *المضمون* العمل على Cloudflare D1
+-- (SQLite متوافق). كل ما يخصّ FTS5 (البحث النصي الكامل) منفصل في
+-- 0002_optional_fts.sql لأن FTS5 ليس مضمونًا في كل بيئات D1.
+--
 -- جميع الأعمدة النصية UTF-8، والجداول تستعمل INTEGER PRIMARY KEY حيث يلزم.
 -- ===========================================================================
 
@@ -187,28 +191,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);
 
--- =============== 10) FTS5 للبحث في نصوص التفاسير (اختياري) ===============
--- يُفعّل في D1 إن دعم البيئة وحدة FTS5. إن لم تدعمها، احذف هذا القسم.
-CREATE VIRTUAL TABLE IF NOT EXISTS tafsir_entries_fts USING fts5 (
-  text,
-  source_name,
-  content='tafsir_entries',
-  content_rowid='rowid',
-  tokenize='unicode61 remove_diacritics 2'
-);
-
--- مزامنة FTS مع الجدول الأصلي عبر مشغّلات
-CREATE TRIGGER IF NOT EXISTS tafsir_entries_ai AFTER INSERT ON tafsir_entries BEGIN
-  INSERT INTO tafsir_entries_fts(rowid, text, source_name)
-  VALUES (new.rowid, new.text, new.source_name);
-END;
-CREATE TRIGGER IF NOT EXISTS tafsir_entries_ad AFTER DELETE ON tafsir_entries BEGIN
-  INSERT INTO tafsir_entries_fts(tafsir_entries_fts, rowid, text, source_name)
-  VALUES ('delete', old.rowid, old.text, old.source_name);
-END;
-CREATE TRIGGER IF NOT EXISTS tafsir_entries_au AFTER UPDATE ON tafsir_entries BEGIN
-  INSERT INTO tafsir_entries_fts(tafsir_entries_fts, rowid, text, source_name)
-  VALUES ('delete', old.rowid, old.text, old.source_name);
-  INSERT INTO tafsir_entries_fts(rowid, text, source_name)
-  VALUES (new.rowid, new.text, new.source_name);
-END;
+-- ===========================================================================
+-- ملاحظة: FTS5 مفصول في 0002_optional_fts.sql لأنه قد لا يكون مدعومًا في
+-- كل نسخ Cloudflare D1. طبّقه فقط بعد التأكد من توفّر FTS5 في بيئتك:
+--   wrangler d1 execute tafseer-production --command "SELECT fts5(0)"
+-- ===========================================================================
