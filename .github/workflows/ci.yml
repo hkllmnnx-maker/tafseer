@@ -84,6 +84,35 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+      - name: Run Quran importer (sample, allow-partial)
+        # Generates dist/import/ayahs-sample.sql + report from a tiny
+        # fixture. This proves the importer wiring works end-to-end.
+        run: npm run import:quran:sample
+
+      - name: Check importer SQL has no 'undefined' / 'NaN'
+        # Defensive guard for the Quran importer output as well —
+        # even a single literal undefined/NaN must abort CI.
+        run: |
+          if grep -E "\bundefined\b|\bNaN\b" dist/import/ayahs-sample.sql; then
+            echo "::error::Importer SQL contains forbidden values (undefined/NaN)."
+            exit 1
+          fi
+          if grep -E "\"text\"\\s*:\\s*(null|\"undefined\"|\"NaN\")" dist/import/quran-import-report.json; then
+            echo "::error::Importer JSON report contains forbidden values."
+            exit 1
+          fi
+          echo "Importer artefacts are clean."
+
+      - name: Reject Quran importer on invalid sample (must fail)
+        # The invalid Quran fixture MUST be rejected by the importer
+        # (duplicates, ayah > max, http://, undefined text, etc.).
+        run: |
+          if node scripts/importers/import-quran.mjs fixtures/import-samples/quran-invalid-sample.json --allow-partial --strict; then
+            echo "::error::Invalid Quran fixture was accepted by the importer."
+            exit 1
+          fi
+          echo "Invalid fixture correctly rejected by importer."
+
       - name: Build (Cloudflare Pages)
         run: npm run build
 
@@ -93,4 +122,6 @@ jobs:
           test -d dist/static || true
           test -f dist/import/seed-data.sql
           test -f dist/import/seed-data.json
+          test -f dist/import/ayahs-sample.sql
+          test -f dist/import/quran-import-report.json
           echo "Build artefacts look OK."

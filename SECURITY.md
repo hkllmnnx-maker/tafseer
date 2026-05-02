@@ -26,16 +26,30 @@
 
 ## 3. قيود الاستيراد (Import restrictions)
 
-- نقطة `/admin/import` غير موجودة بعد، ولن تُضاف بدون مصادقة قوية
-  (Cloudflare Access أو Bearer token مع rate limiting).
-- مدقّق `scripts/importers/validate-import.mjs` يفرض:
+- نقطة `/admin/import` **غير موجودة وغير مخطّطة بدون مصادقة قوية**
+  (Cloudflare Access أو Bearer token مع rate limiting). المستوردات
+  تُنفَّذ خارج التطبيق عبر CLI فقط (`wrangler d1 execute --file=...`).
+- مدقّق `scripts/importers/validate-import.mjs` (تفاسير) يفرض:
   - حقول إلزامية: `id`, `bookId`, `surah`, `ayah`, `text`, `sourceType`, `verificationStatus`.
   - رفض القيم خارج القائمة البيضاء لـ `sourceType` و `verificationStatus`.
   - رفض أرقام السور خارج 1..114، ورفض رقم آية يتجاوز عدد آيات السورة.
   - رفض IDs المكرّرة داخل نفس الملف.
   - الحدّ الأدنى لطول النص = 5 أحرف.
-- في الإنتاج: كل دفعة استيراد تُسجَّل في جدول `import_jobs` و `audit_logs`،
-  وتمرّ بـ dry-run قبل التنفيذ.
+- مدقّق + مستورد القرآن (`scripts/importers/validate-quran-json.mjs` و
+  `scripts/importers/import-quran.mjs`) يفرض:
+  - رفض النصوص الفارغة، أو التي تحوي حرفيًا `undefined` / `NaN` / `null`.
+  - رفض تكرار الزوج `(surah, ayah)` ورفض أرقام عشريّة.
+  - رفض `sourceUrl` غير `https://` في `--strict`.
+  - في `--full`: يُلزم وجود 6236 آية بالضبط لـ 114 سورة.
+  - الإخراج SQL يُولَّد محلّيًا فقط (`dist/import/ayahs-full.sql`)
+    باستخدام `INSERT OR REPLACE` (idempotent) مع هروب الاقتباسات SQLite،
+    ولا يلمس الشبكة، ولا يكتب أي ملفات خارج `dist/import/`.
+  - تقرير `dist/import/quran-import-report.json` يحتفظ بـ `SHA-256`
+    لمدخل JSON الأصلي للتدقيق والمراجعة المستقلة.
+- بيانات القرآن الكاملة **لا تُلتزم في git** — يُحتفظ بها في `.imports/`
+  المُستثناة عبر `.gitignore`، وتُنفَّذ على D1 عبر CLI خارج العمليّة العامة.
+- في الإنتاج: كل دفعة استيراد تُسجَّل (مستقبلاً) في جدول `import_jobs` و
+  `audit_logs`، وتمرّ بـ dry-run قبل التنفيذ.
 
 ## 4. حماية البيانات (Data protection)
 

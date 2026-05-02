@@ -100,15 +100,18 @@ node scripts/importers/validate-quran-json.mjs .imports/quran-full.json --full -
 node scripts/importers/validate-quran-json.mjs .imports/quran-full.json --full --json \
   > .imports/quran-validation-report.json
 
-# 6) ادمج النصوص في seed-data.sql (سيتطلّب سكربت import-quran.mjs مستقبلًا)
-#    الفكرة: تحويل ayahs[] إلى INSERT OR REPLACE INTO ayahs (...)
-#    حاليًا: يدويًا أو عبر سكربت يُكتب لاحقًا.
+# 6) أنشئ ملف SQL آمنًا (INSERT OR REPLACE) من JSON المُدقَّق
+#    المستورد يُطبّق نفس قواعد التحقّق + يحفظ source_name/source_url/imported_from
+#    على كل آية، ويُولّد تقريرًا JSON يحوي SHA-256 للمدخل.
+node scripts/importers/import-quran.mjs .imports/quran-full.json --full --strict \
+  --filename=ayahs-full.sql
+# سيُكتب: dist/import/ayahs-full.sql + dist/import/quran-import-report.json
 
-# 7) طبِّق migrations على D1 الإنتاج
+# 7) طبِّق migrations على D1 الإنتاج (تشمل 0003_ayah_sources.sql)
 npm run db:migrate:prod
 
 # 8) نفِّذ ملف SQL الناتج على D1 الإنتاج
-npx wrangler d1 execute tafseer-production --file=.imports/ayahs-only.sql
+npx wrangler d1 execute tafseer-production --file=dist/import/ayahs-full.sql
 
 # 9) تحقّق من العدد الإجمالي بعد الاستيراد
 npx wrangler d1 execute tafseer-production --command="SELECT COUNT(*) FROM ayahs"
@@ -121,30 +124,45 @@ curl https://tafseer.pages.dev/api/stats        # ayahsCount: 6236
 
 ---
 
-## 5) السكربت المُقترَح (لم يُكتب بعد)
+## 5) السكربت `scripts/importers/import-quran.mjs` (مُنفَّذ ✅)
 
-`scripts/importers/import-quran.mjs` — يحوّل ملف JSON المُدقَّق إلى `INSERT OR REPLACE` آمن:
+`scripts/importers/import-quran.mjs` — يحوّل ملف JSON المُدقَّق إلى `INSERT OR REPLACE` آمن
+ويُخرج تقرير JSON يصف العمليّة:
 
-```js
-// pseudo-code
-const valid = await validate(jsonFile, { full: true, strict: true })
-if (!valid.ok) process.exit(1)
+```bash
+# الاستخدام الأساسي (مع تحقّق صارم):
+node scripts/importers/import-quran.mjs <input.json> [flags]
 
-const sql = []
-sql.push('PRAGMA foreign_keys = ON;')
-sql.push('BEGIN;')
-for (const a of valid.ayahs) {
-  // .bind() غير متاح هنا (نحن نُولّد SQL ملف) — لذا هربنا النص يدويًا
-  const text = a.text.replace(/'/g, "''")     // SQLite single-quote escape
-  const src  = (a.source || valid.topSource || '').replace(/'/g, "''")
-  const url  = (a.sourceUrl || valid.topSourceUrl || '').replace(/'/g, "''")
-  sql.push(`INSERT OR REPLACE INTO ayahs (surah_number, ayah_number, text, juz, page, source_name, source_url) VALUES (${a.surah}, ${a.ayah}, '${text}', ${a.juz ?? 'NULL'}, ${a.page ?? 'NULL'}, '${src}', '${url}');`)
-}
-sql.push('COMMIT;')
-fs.writeFileSync('dist/import/ayahs-only.sql', sql.join('\n'))
+# الأعلام المتوفّرة:
+#   --full           يُلزم وجود 6236 آية بالضبط (للقرآن كاملاً)
+#   --strict         يُلزم وجود source + sourceUrl (HTTPS)
+#   --allow-partial  يسمح باستيراد عيّنة جزئية (للتطوير فقط)
+#   --json           إخراج تقرير JSON على stdout (للCI)
+#   --filename=NAME  اسم ملف SQL الناتج (افتراضي: ayahs-full.sql)
+
+# أمثلة:
+node scripts/importers/import-quran.mjs .imports/quran-full.json --full --strict
+node scripts/importers/import-quran.mjs fixtures/import-samples/quran-valid-sample.json \
+  --allow-partial --strict --filename=ayahs-sample.sql
+
+# عبر npm:
+npm run import:quran -- <input.json> [flags]
+npm run import:quran:sample      # = ينفّذ على العيّنة مع --allow-partial
 ```
 
-**لاحظ:** هذا السكربت يولِّد ملف SQL فقط (لا يتّصل بـ D1). المسؤول عن التنفيذ هو `wrangler d1 execute --file=...`.
+**المخرجات:**
+- `dist/import/ayahs-full.sql` (أو ما يحدّده `--filename`): ملف SQL يحوي
+  `PRAGMA foreign_keys = ON; BEGIN; INSERT OR REPLACE INTO ayahs (...); COMMIT;`
+  مع هروب الاقتباسات بصيغة SQLite (`''`) ولا يحوي `undefined`/`NaN`.
+- `dist/import/quran-import-report.json`: تقرير يحوي
+  `{ ok, sha256, counts, options, surahCoverage[], generatedAt }` للسجلّ والتدقيق.
+
+**الضمانات الأمنيّة:**
+- التحقّق نفسه المُستخدَم في `validate-quran-json.mjs` (لا تكرار، لا نطاقات خاطئة، لا
+  نصوص فارغة، لا `undefined`/`NaN`، `sourceUrl` HTTPS فقط في `--strict`).
+- `INSERT OR REPLACE` آمن عند إعادة التشغيل (idempotent).
+- الحقول الجديدة (`source_name`, `source_url`, `imported_from`) من migration `0003`.
+- لا اتّصال بشبكة، لا تنفيذ على D1 — يولِّد ملف SQL فقط لينفِّذه `wrangler d1 execute`.
 
 ---
 
@@ -188,11 +206,14 @@ npx wrangler d1 execute tafseer-production --file=.imports/backup-before-import.
 
 ## 8) الأعمال المتبقّية (Next steps)
 
-- [ ] كتابة `scripts/importers/import-quran.mjs` (المُولِّد SQL).
-- [ ] إضافة `npm run validate:quran-full` للسكربت.
-- [ ] إضافة `npm run import:quran` للتنفيذ النهائي.
-- [ ] إضافة test يُولّد ملف JSON كامل وهميّ ويُختبر validator في `--full`.
-- [ ] إضافة CI step اختياري للاستيراد إلى D1 staging (يتطلّب أسرارًا).
+- [x] كتابة `scripts/importers/import-quran.mjs` (المُولِّد SQL). ✅ منجَز
+- [x] إضافة `npm run import:quran` للتنفيذ النهائي. ✅ منجَز
+- [x] إضافة `npm run import:quran:sample` لتشغيل العيّنة. ✅ منجَز
+- [x] migration `0003_ayah_sources.sql` لإضافة `source_name`, `source_url`, `imported_from`. ✅ منجَز
+- [x] tests/quran-importer.test.mjs (12 subtests). ✅ منجَز
+- [x] CI step يشغّل الاستيراد على العيّنة ويرفض الفاسدة. ✅ منجَز
+- [ ] إضافة `npm run validate:quran-full` (يستلزم ملفًا كاملاً 6236 خارج المستودع).
+- [ ] استيراد الفعلي على D1 staging (يتطلّب ملف JSON كامل + أسرار Cloudflare).
 - [ ] توثيق نتائج الاستيراد في `docs/final-report.md` بعد التنفيذ.
 
 ---
@@ -201,6 +222,17 @@ npx wrangler d1 execute tafseer-production --file=.imports/backup-before-import.
 
 - [مصحف المدينة الرقمي](https://qurancomplex.gov.sa/)
 - [Tanzil.net Quran Text Downloads](https://tanzil.net/download/)
+- [Quran.com API v4](https://api-docs.quran.com/)
+- [QuranicCorpus.com](https://corpus.quran.com/)
+- ملف validator: [`scripts/importers/validate-quran-json.mjs`](../scripts/importers/validate-quran-json.mjs)
+- العيّنات: [`fixtures/import-samples/quran-*.json`](../fixtures/import-samples/)
+
+---
+
+> **تحذير:** لا تلتزم ملف القرآن الكامل في git المستودع — حجمه قد يصل لـ 4–8 MB
+> ويجب أن يبقى في `.imports/` (مضافة إلى `.gitignore`). فقط ملف `seed-data.sql`
+> النهائيّ يُلتزم في `dist/import/` بعد البناء.
+ Quran Text Downloads](https://tanzil.net/download/)
 - [Quran.com API v4](https://api-docs.quran.com/)
 - [QuranicCorpus.com](https://corpus.quran.com/)
 - ملف validator: [`scripts/importers/validate-quran-json.mjs`](../scripts/importers/validate-quran-json.mjs)
