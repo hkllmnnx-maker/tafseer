@@ -2,7 +2,7 @@
 import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import {
   IconBook, IconBookOpen, IconHash, IconQuote, IconArrowLeft, IconArrowRight,
-  IconTextSize, IconChevronUp, IconCopy, IconExternal, IconBookmark,
+  IconTextSize, IconChevronUp, IconCopy, IconExternal, IconBookmark, IconDatabase,
 } from '../icons'
 import { SURAHS, getSurahByNumber } from '../../data/surahs'
 import { getAyahsBySurah } from '../../data/ayahs'
@@ -10,6 +10,7 @@ import { TAFSEERS } from '../../data/tafseers'
 import { BOOKS } from '../../data/books'
 import { AUTHORS } from '../../data/authors'
 import { getSurahCoverage } from '../../lib/coverage'
+import type { Surah, Ayah, TafseerEntry } from '../../lib/data/types'
 
 function toArabicNumber(n: number): string {
   return n.toString().replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d, 10)])
@@ -18,11 +19,22 @@ function toArabicNumber(n: number): string {
 export const ReadPage = ({
   surahNumber,
   filter = 'all',
+  // Optional pre-fetched payload via DataProvider (avoids N+1 on D1)
+  surah: surahProp,
+  ayahs: ayahsProp,
+  tafseersByAyah: tafseersByAyahProp,
+  dataMode,
 }: {
   surahNumber: number
   filter?: 'all' | 'summaries' | 'verified'
+  surah?: Surah | undefined
+  ayahs?: Ayah[]
+  tafseersByAyah?: Record<number, TafseerEntry[]>
+  dataMode?: 'seed' | 'd1'
 }) => {
-  const surah = getSurahByNumber(surahNumber)
+  // Fall back to seed lookup when no pre-fetched data is provided.
+  const surah = surahProp !== undefined ? surahProp : getSurahByNumber(surahNumber)
+  const mode = dataMode || 'seed'
   if (!surah) {
     return (
       <>
@@ -37,11 +49,22 @@ export const ReadPage = ({
     )
   }
 
-  const ayahs = getAyahsBySurah(surahNumber)
-  const totalTafseersInSurah = TAFSEERS.filter(t => t.surah === surahNumber).length
-  const ayahsWithTafseer = new Set(
-    TAFSEERS.filter(t => t.surah === surahNumber).map(t => t.ayah),
-  ).size
+  const ayahs = ayahsProp !== undefined ? ayahsProp : getAyahsBySurah(surahNumber)
+  // Build tafseersByAyah index once (no N+1 lookups inside the render loop)
+  let tafseersByAyahLocal: Record<number, TafseerEntry[]>
+  if (tafseersByAyahProp !== undefined) {
+    tafseersByAyahLocal = tafseersByAyahProp
+  } else {
+    tafseersByAyahLocal = {}
+    for (const t of TAFSEERS) {
+      if (t.surah !== surahNumber) continue
+      if (!tafseersByAyahLocal[t.ayah]) tafseersByAyahLocal[t.ayah] = []
+      tafseersByAyahLocal[t.ayah].push(t as any)
+    }
+  }
+  const allTafseersInSurah: TafseerEntry[] = Object.values(tafseersByAyahLocal).flat()
+  const totalTafseersInSurah = allTafseersInSurah.length
+  const ayahsWithTafseer = Object.keys(tafseersByAyahLocal).length
 
   // جيران
   const prevSurah = SURAHS.find(s => s.number === surahNumber - 1)
@@ -79,6 +102,11 @@ export const ReadPage = ({
                 <IconQuote size={11} /> {toArabicNumber(totalTafseersInSurah)} تفسير في {toArabicNumber(ayahsWithTafseer)} آية
               </span>
             ) : null}
+            <span
+              class={`badge ${mode === 'd1' ? 'badge-success' : 'badge-gold'}`}
+              title={mode === 'd1' ? 'البيانات تُقرأ من قاعدة Cloudflare D1' : 'البيانات تُقرأ من العيّنة المضمَّنة (seed)'}>
+              <IconDatabase size={11} /> {mode === 'd1' ? 'D1' : 'seed'}
+            </span>
             {(() => {
               const cov = getSurahCoverage(surahNumber)
               if (!cov) return null
@@ -177,7 +205,8 @@ export const ReadPage = ({
         ) : (
           <div class="read-ayahs-list">
             {ayahs.map((a, idx) => {
-              let tafs = TAFSEERS.filter(t => t.surah === a.surah && t.ayah === a.number)
+              // Pre-indexed tafseers by ayah number → no N+1 scans of TAFSEERS
+              let tafs: TafseerEntry[] = tafseersByAyahLocal[a.number] || []
               if (filter === 'summaries') {
                 tafs = tafs.filter(t => t.sourceType === 'summary' || t.sourceType === 'sample' || !t.sourceType)
               } else if (filter === 'verified') {
@@ -230,8 +259,12 @@ export const ReadPage = ({
                       </h3>
                       <div class="tafseer-list">
                         {tafs.map(t => {
-                          const book = BOOKS.find(b => b.id === t.bookId)!
-                          const author = AUTHORS.find(au => au.id === book.authorId)!
+                          // Resilient lookup: book/author may be missing if D1 contains rows
+                          // for books that aren't part of the seed metadata.
+                          const book = BOOKS.find(b => b.id === t.bookId)
+                          const author = book ? AUTHORS.find(au => au.id === book.authorId) : undefined
+                          const bookTitle = book?.title || t.bookId
+                          const bookSchools = book?.schools?.join('، ') || ''
                           return (
                             <article class="tafseer-card compact" data-tafseer-id={t.id}>
                               <header class="tafseer-header">
@@ -241,11 +274,13 @@ export const ReadPage = ({
                                   </div>
                                   <div class="tafseer-book-meta">
                                     <div class="tafseer-book-name">
-                                      <a href={`/books/${book.id}`} style="color:inherit">{book.title}</a>
+                                      {book
+                                        ? <a href={`/books/${book.id}`} style="color:inherit">{bookTitle}</a>
+                                        : <span>{bookTitle}</span>}
                                     </div>
                                     <div class="tafseer-author-name">
-                                      {author.name} · ت {author.deathYear}هـ
-                                      · {book.schools.join('، ')}
+                                      {author ? <>{author.name} · ت {author.deathYear}هـ</> : null}
+                                      {bookSchools ? <> · {bookSchools}</> : null}
                                     </div>
                                   </div>
                                 </div>
@@ -253,9 +288,11 @@ export const ReadPage = ({
                                   <button class="icon-btn copy-btn" data-copy-target={`#read-tafseer-${t.id}`} title="نسخ">
                                     <IconCopy size={14} />
                                   </button>
-                                  <a href={`/books/${book.id}`} class="icon-btn" title="فتح الكتاب">
-                                    <IconExternal size={14} />
-                                  </a>
+                                  {book ? (
+                                    <a href={`/books/${book.id}`} class="icon-btn" title="فتح الكتاب">
+                                      <IconExternal size={14} />
+                                    </a>
+                                  ) : null}
                                 </div>
                               </header>
                               <div

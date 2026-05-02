@@ -3,7 +3,7 @@ import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import {
   IconArrowLeft, IconArrowRight, IconCopy, IconShare, IconExternal,
   IconBook, IconChevronDown, IconChevronUp, IconQuote, IconCompare,
-  IconTextSize, IconHash, IconBookmark,
+  IconTextSize, IconHash, IconBookmark, IconDatabase,
 } from '../icons'
 import { SURAHS, getSurahByNumber } from '../../data/surahs'
 import { getAyah } from '../../data/ayahs'
@@ -16,21 +16,34 @@ import {
   ScientificDisclaimer,
 } from '../components/badges'
 import { getSurahCoverage, ayahHasText } from '../../lib/coverage'
+import type { Surah, Ayah, TafseerEntry } from '../../lib/data/types'
 
 export const AyahPage = ({
   surah,
   ayah,
   q = '',
   notFound = false,
+  // Optional pre-fetched data via DataProvider — falls back to seed if absent
+  surahData: surahDataProp,
+  ayahData: ayahDataProp,
+  tafseers: tafseersProp,
+  dataMode,
 }: {
   surah: number
   ayah: number
   q?: string
   notFound?: boolean
+  surahData?: Surah | undefined
+  ayahData?: Ayah | undefined
+  tafseers?: TafseerEntry[]
+  dataMode?: 'seed' | 'd1'
 }) => {
-  const surahData = getSurahByNumber(surah)
-  const ayahData = getAyah(surah, ayah)
-  const tafseers = getTafseersByAyah(surah, ayah)
+  // Use provider-supplied data when available, otherwise fall back to seed lookups.
+  // This preserves backward compatibility for any caller that doesn't pass props.
+  const surahData = surahDataProp !== undefined ? surahDataProp : getSurahByNumber(surah)
+  const ayahData = ayahDataProp !== undefined ? ayahDataProp : getAyah(surah, ayah)
+  const tafseers = tafseersProp !== undefined ? tafseersProp : getTafseersByAyah(surah, ayah)
+  const mode = dataMode || 'seed'
 
   if (notFound || !surahData) {
     return (
@@ -96,6 +109,11 @@ export const AyahPage = ({
           {verifiedCount > 0 ? <span class="badge badge-success">{verifiedCount} موثّق</span> : null}
           {originalCount > 0 ? <span class="badge badge-gold">{originalCount} نص أصلي</span> : null}
           {summaryCount > 0 ? <span class="badge">{summaryCount} ملخّص/عيّنة</span> : null}
+          <span
+            class={`badge ${mode === 'd1' ? 'badge-success' : 'badge-gold'}`}
+            title={mode === 'd1' ? 'البيانات تُقرأ من قاعدة Cloudflare D1' : 'البيانات تُقرأ من العيّنة المضمَّنة (seed)'}>
+            <IconDatabase size={11} /> {mode === 'd1' ? 'D1' : 'seed'}
+          </span>
           <a href="/methodology" class="text-accent text-xs" style="margin-inline-start:auto" title="معاني الشارات ومنهجية التحقّق">
             ما معنى هذه الشارات؟ ↗
           </a>
@@ -229,14 +247,20 @@ export const AyahPage = ({
                       </a>
                     )
                   })}
+
                 </div>
               </nav>
             ) : null}
 
             <div class="tafseer-list" id="tafseer-list">
               {tafseers.map(t => {
-                const book = BOOKS.find(b => b.id === t.bookId)!
-                const author = AUTHORS.find(a => a.id === book.authorId)!
+                // Resilient lookup: book/author may be missing if D1 has wider data than seed.
+                const book = BOOKS.find(b => b.id === t.bookId)
+                const author = book ? AUTHORS.find(a => a.id === book.authorId) : undefined
+                const bookTitle = book?.title || t.bookId
+                const bookSchools = book?.schools?.join('، ') || ''
+                const authorName = author?.name || ''
+                const authorDeath = author?.deathYear
                 return (
                   <article class="tafseer-card" data-tafseer-id={t.id}>
                     <header class="tafseer-header">
@@ -246,11 +270,13 @@ export const AyahPage = ({
                         </div>
                         <div class="tafseer-book-meta">
                           <div class="tafseer-book-name">
-                            <a href={`/books/${book.id}`} style="color:inherit">{book.title}</a>
+                            {book
+                              ? <a href={`/books/${book.id}`} style="color:inherit">{bookTitle}</a>
+                              : <span>{bookTitle}</span>}
                           </div>
                           <div class="tafseer-author-name">
-                            {author.name} · ت {author.deathYear}هـ
-                            {' '}· {book.schools.join('، ')}
+                            {authorName ? <>{authorName}{authorDeath ? <> · ت {authorDeath}هـ</> : null}</> : null}
+                            {bookSchools ? <> · {bookSchools}</> : null}
                           </div>
                           <div class="tafseer-badges">
                             <SourceTypeBadge type={t.sourceType} />
@@ -265,9 +291,11 @@ export const AyahPage = ({
                         <button class="icon-btn share-btn" data-share-id={t.id} data-surah={surah} data-ayah={ayah} title="مشاركة">
                           <IconShare size={16} />
                         </button>
-                        <a href={`/books/${book.id}`} class="icon-btn" title="فتح الكتاب">
-                          <IconExternal size={16} />
-                        </a>
+                        {book ? (
+                          <a href={`/books/${book.id}`} class="icon-btn" title="فتح الكتاب">
+                            <IconExternal size={16} />
+                          </a>
+                        ) : null}
                       </div>
                     </header>
                     <VerificationWarning status={t.verificationStatus} note={t.reviewerNote} />
@@ -279,7 +307,7 @@ export const AyahPage = ({
                     />
                     <div style="padding:0 1.5rem 1rem">
                       <SourceCitation
-                        bookTitle={book.title}
+                        bookTitle={bookTitle}
                         sourceName={t.sourceName || t.source}
                         edition={t.edition}
                         volume={t.volume}

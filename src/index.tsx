@@ -198,23 +198,38 @@ app.get('/search', async c => {
   )
 })
 
-app.get('/ayah/:surah/:ayah', c => {
+app.get('/ayah/:surah/:ayah', async c => {
   const surah = parseIntSafe(c.req.param('surah')) || 0
   const ayah = parseIntSafe(c.req.param('ayah')) || 0
   const q = (c.req.query('q') || '').slice(0, MAX_QUERY_LENGTH)
-  const surahData = getSurahByNumber(surah)
+
+  // ----- DataProvider: D1 if env.DB present, else seed (fallbacks built-in) -----
+  const data = getDataProvider(c.env as any)
+  const [surahData, ayahData, tafseers] = await Promise.all([
+    Promise.resolve(data.getSurahByNumber(surah)),
+    Promise.resolve(data.getAyah(surah, ayah)),
+    Promise.resolve(data.getTafseersByAyah(surah, ayah)),
+  ])
 
   // Phase: Quran coverage - return 404 for verses that don't exist in the Qur'an at all
   if (!surahData || !ayahExistsInQuran(surah, ayah)) {
     c.status(404)
     return c.render(
-      <AyahPage surah={surah} ayah={ayah} q={q} notFound={true} />,
+      <AyahPage
+        surah={surah} ayah={ayah} q={q} notFound={true}
+        surahData={surahData} ayahData={ayahData} tafseers={tafseers}
+        dataMode={data.name}
+      />,
       { title: 'آية غير موجودة' } as any,
     )
   }
 
   return c.render(
-    <AyahPage surah={surah} ayah={ayah} q={q} />,
+    <AyahPage
+      surah={surah} ayah={ayah} q={q}
+      surahData={surahData} ayahData={ayahData} tafseers={tafseers}
+      dataMode={data.name}
+    />,
     {
       title: `سورة ${surahData.name} - آية ${ayah}`,
       description: `تفسير الآية ${ayah} من سورة ${surahData.name} من عدة كتب تفسير معتمدة، مع توضيح حالة التحقّق ومصدر كل نص.`,
@@ -340,13 +355,29 @@ app.get('/surahs/:n', c => {
 })
 
 // قراءة متسلسلة لسورة كاملة (آيات + تفاسير مدمجة)
-app.get('/read/:n', c => {
+app.get('/read/:n', async c => {
   const n = parseIntSafe(c.req.param('n')) || 0
-  const s = getSurahByNumber(n)
   const filterParam = c.req.query('filter')
   const filter = (filterParam === 'summaries' || filterParam === 'verified') ? filterParam : 'all'
+
+  // ----- DataProvider: 3 parallel queries via getReadSurahPayload (no N+1) -----
+  const data = getDataProvider(c.env as any)
+  const payload = await Promise.resolve(
+    data.getReadSurahPayload
+      ? data.getReadSurahPayload(n)
+      : { surah: data.getSurahByNumber(n), ayahs: [], tafseersByAyah: {}, mode: data.name }
+  )
+  const s = payload.surah
+
   return c.render(
-    <ReadPage surahNumber={n} filter={filter as any} />,
+    <ReadPage
+      surahNumber={n}
+      filter={filter as any}
+      surah={payload.surah}
+      ayahs={payload.ayahs}
+      tafseersByAyah={payload.tafseersByAyah}
+      dataMode={data.name}
+    />,
     {
       title: s ? `قراءة سورة ${s.name}` : 'قراءة',
       description: s ? `قراءة متسلسلة لسورة ${s.name} مع التفاسير المدمجة لكل آية.` : undefined,
