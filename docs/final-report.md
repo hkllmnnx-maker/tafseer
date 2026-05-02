@@ -141,3 +141,75 @@ public/static/app.js — استدعاء SW محسَّن.
 ## 7) الخلاصة
 
 تم إنجاز **جميع المهام الإصلاحية** التي توقّفت عندها المحادثة السابقة، ورُفِعَت بشكل تتابعي إلى `https://github.com/hkllmnnx-maker/tafseer` على فرع `main`. كل مرحلة لها commit مستقل برسالة Conventional Commits واضحة، مما يُسهِّل المراجعة والـ revert إن لزم. المشروع جاهز لمرحلة الانتقال من seed إلى D1 وللإطلاق الإنتاجي.
+
+---
+
+## 8) إضافة v1.6 — جلسة 2 مايو 2026 (المرحلة الإكمالية)
+
+### 8.1 ما أُنجز في هذه الجلسة
+
+| # | المهمّة | الـ commit | الحالة |
+|---|---------|-----------|--------|
+| 1 | توسيع DataProvider + إضافة D1 provider مع fallback إلى seed | `4ba7a53` | ✅ |
+| 2 | إضافة seed-to-D1 export script + wrangler placeholder | `a5b2d14` | ✅ |
+| 3 | اختبارات وحدات (18 اختبار) + تحسين CI + إعادة تسمية FTS5 migration | `ff6fde9` | ✅ |
+| 4 | تحسينات UX: فلاتر بحث قابلة للطيّ على الجوّال + Copy-All تفاسير + شارة وضع البيانات | `3ab3fed` | ✅ |
+| 5 | Service Worker v4: API fallback + bypass للمسارات الديناميكية | `c459f1f` | ✅ |
+| 6 | تشديد CSP: إزالة `'unsafe-inline'` من script-src + SHA-256 hash | `045b4a0` | ✅ |
+| 7 | إضافة `docs/testing.md` + توسيع `docs/security.md` (جدول تطوّر CSP) | `5dd545e` | ✅ |
+| 8 | جدول حالة المشروع في README + ربط testing.md/final-report.md | `01ed5cb` | ✅ |
+
+### 8.2 نتائج التحقّق النهائي (2 مايو 2026)
+
+```
+✓ npm run verify:data         → لا توجد أخطاء
+✓ npm run validate:samples    → 3 مقبول · 0 مرفوض · 1 تحذير
+✓ npm test                    → 18/18 اختبار ناجح
+✓ npm run export:seed-sql     → 177.1 KB SQL · 152.5 KB JSON (نظيف، بلا undefined)
+✓ npm run build               → dist/_worker.js = 318.28 kB (1.71s)
+```
+
+### 8.3 المسارات HTTP المختبرة (22 مسارًا، كلّها 200)
+
+```
+HTML : /, /search?q=الله, /ayah/1/1, /dashboard, /read/1,
+       /books, /authors, /categories, /compare, /about, /methodology
+API  : /api/stats, /api/ayah/1/1, /api/search?q=..., /api/suggest?q=...,
+       /api/surahs, /api/books, /api/authors
+PWA  : /sitemap.xml, /robots.txt, /manifest.json, /sw.js
+```
+
+كذلك 4 مسارات تعيد 404 صحيحًا: `/surah/999`, `/ayah/999/1`, `/api/ayah/999/1`, `/nonexistent`.
+
+### 8.4 رؤوس الأمان المؤكَّدة
+
+```
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+Content-Security-Policy: default-src 'self'; ...; script-src 'self'
+  'sha256-XDgFU4l0pZIkpiMebd0KPkXydQsyFJhP/U4A/laXaxU='; ...
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=(),
+  payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(),
+  midi=(), fullscreen=(self)
+Referrer-Policy: strict-origin-when-cross-origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+```
+
+> **ملاحظة مهمّة**: `script-src` لم يعد يحتوي على `'unsafe-inline'`؛ السكربت
+> المضمَّن الوحيد المسموح به (تهيئة الثيم في `src/renderer.tsx`) مسموح
+> فقط عبر SHA-256 hash. أي محاولة حقن سكربت inline خارجي ستُرفَض.
+
+### 8.5 ملخّص الإنجاز الكلّي
+
+- **8 commits** مستقلّة، كلّها مرفوعة إلى `origin/main`.
+- **0 أخطاء** في أيّ من فحوصات التحقّق.
+- **18/18 اختبار** ناجح.
+- **22 مسار** HTTP 200 + **4 مسارات** 404 صحيحة.
+- **CSP صارم** بلا `'unsafe-inline'` على `script-src`.
+- **8 ملفات توثيق** متكاملة في `/docs` + README مع جدول حالة شامل.
+- **D1 جاهز للتفعيل** (Provider + migrations + import script + placeholder في `wrangler.jsonc`).
+
+المشروع الآن في حالة **Beta متقدّمة مستقرّة (v1.6)**، جاهز للنشر الإنتاجي
+على Cloudflare Pages بمجرّد ضبط مفتاح API وتشغيل `npm run deploy`.
