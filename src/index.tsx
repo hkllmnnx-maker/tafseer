@@ -506,6 +506,7 @@ app.get('/api/ayah/:surah/:ayah', async c => {
       error: 'surah_not_found',
       message: `السورة رقم ${surah} غير موجودة في القرآن. القرآن الكريم يحتوي على 114 سورة فقط.`,
       params: { surah, ayah },
+      mode: data.name,
     }, 404)
   }
 
@@ -517,6 +518,7 @@ app.get('/api/ayah/:surah/:ayah', async c => {
       message: `سورة ${surahData.name} تحتوي على ${surahData.ayahCount} آية فقط، والآية رقم ${ayah} غير موجودة فيها.`,
       params: { surah, ayah },
       surah: { number: surahData.number, name: surahData.name, ayahCount: surahData.ayahCount },
+      mode: data.name,
     }, 404)
   }
 
@@ -539,6 +541,7 @@ app.get('/api/ayah/:surah/:ayah', async c => {
       } : undefined,
       tafseersCount: tafseers.length,
       tafseers: tafseers.length ? tafseers : undefined,
+      mode: data.name,
     }, 404)
   }
 
@@ -551,6 +554,7 @@ app.get('/api/ayah/:surah/:ayah', async c => {
       surah: { number: surahData.number, name: surahData.name, ayahCount: surahData.ayahCount, type: surahData.type },
       tafseersCount: tafseers.length,
     },
+    mode: data.name,
   })
 })
 

@@ -1,6 +1,6 @@
 # سياسة الأمان — تفسير
 
-> آخر تحديث: 2026-05-01
+> آخر تحديث: 2026-05-02
 
 هذا المستند يصف سياسة الأمان في مشروع **تفسير**: كيف نتعامل مع الأسرار،
 وكيف نُبلَّغ عن الثغرات، وما هي القيود المفروضة على الاستيراد، الأذونات،
@@ -55,19 +55,34 @@
 | `X-Content-Type-Options` | `nosniff` | منع تخمين MIME |
 | `X-Frame-Options` | `DENY` (عبر `frame-ancestors 'none'`) | منع clickjacking |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | تقليل تسريب الـ referrer |
-| `Strict-Transport-Security` | افتراضي من Hono | إجبار HTTPS |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | إجبار HTTPS لمدة سنتين |
 | `Permissions-Policy` | افتراضي مقيّد | منع APIs الخطيرة |
+| `Cross-Origin-Opener-Policy` | `same-origin` | عزل النوافذ |
+| `Cross-Origin-Resource-Policy` | `same-origin` | منع الموارد عبر الأصل |
 
 CSP يسمح فقط بـ:
-- Scripts/Styles من نفس الأصل + `unsafe-inline` (لـ tailwind أو inline styles).
-- خطوط Google fonts.
-- صور من نفس الأصل + `data:` و `blob:`.
+- `script-src`: نفس الأصل + **SHA-256 hash** محدد لسكربت تهيئة الثيم
+  (لا `'unsafe-inline'` على scripts).
+- `style-src`: نفس الأصل + `'unsafe-inline'` (مؤقّت — راجع docs/security.md
+  لخطة الإزالة عبر hashing لاحقًا) + `https://fonts.googleapis.com`.
+- `font-src`: نفس الأصل + `https://fonts.gstatic.com` + `data:`.
+- `img-src`: نفس الأصل + `data:` + `blob:`.
+- `frame-ancestors 'none'` (لا تضمين داخل iframes).
+- `object-src 'none'`, `script-src-attr 'none'`.
 - لا frames خارجية، لا scripts خارجية غير معروفة.
+
+**كيفية تحديث CSP hash:** عند أي تعديل لسكربت inline في
+`src/renderer.tsx`، أعد حساب SHA-256 hash للنص بالضبط (بما في ذلك
+المسافات) وحدّث القيمة في `src/index.tsx`. تفاصيل في `docs/security.md`.
 
 ## 6. سياسة CORS
 
-- `app.use('/api/*', cors({ origin: '*', allowMethods: ['GET'] }))`
-- API للقراءة فقط (GET)؛ لا توجد نقاط POST/PUT/DELETE علنية.
+- `app.use('/api/*', cors({ origin: '*', allowMethods: ['GET','HEAD','OPTIONS'], credentials: false, maxAge: 600 }))`
+- API للقراءة فقط (GET/HEAD/OPTIONS فقط)؛ لا توجد نقاط POST/PUT/DELETE علنية.
+- `credentials: false` يمنع المتصفّح من إرسال cookies أو ترويسات اعتماد.
+- `allowHeaders` مقصور على `Content-Type` و`Accept`.
+- المحتوى عام (تفاسير، آيات، إحصاءات) ولا يحتوي بيانات مستخدم حسّاسة،
+  لذلك `origin: '*'` آمن في هذا السياق.
 - إذا أُضيفت نقاط كتابة لاحقًا (للاستيراد أو الإدارة) فستُقيَّد بأصل محدّد
   + Bearer token + rate limiting.
 
@@ -99,11 +114,63 @@ CSP يسمح فقط بـ:
 - جميع المخرجات HTML تمرّ عبر `escapeHtml()`/`highlightText()` (لا `dangerouslySetInnerHTML`
   على input مستخدم خام).
 
+## 9.1 حماية SQL في طبقة D1 Provider
+
+`src/lib/data/d1-provider.ts` يلتزم بمبدأ **Defense in Depth** لمنع
+حقن SQL، حتى عند استلام مدخلات غير موثوقة:
+
+- **Prepared statements حصريًا**: كل قيمة مستخدم تمرّ عبر `db.prepare(...).bind(...)`،
+  ولا يوجد string interpolation للقيم في أي استعلام.
+- **Placeholders ديناميكية فقط من العدد**: عند بناء `IN (?, ?, ...)`،
+  يُحسب عدد placeholders من طول المصفوفة، لا من قيم المستخدم.
+- **String interpolation مسموح فقط لـ:**
+  1. أسماء أعمدة/جداول ثابتة في الكود (literals).
+  2. `ORDER BY` من قائمة بيضاء (`ALLOWED_SORTS`).
+  3. `searchIn` من قائمة بيضاء (`ALLOWED_SEARCH_IN`).
+  4. `HARD_LIMIT` (ثابت رقمي حرفي).
+- **LIKE patterns مع ESCAPE**: كل `%`, `_`, `\` من المستخدم تُهرَّب،
+  ويُضاف `ESCAPE '\\'` لكل LIKE.
+- **Schools filter آمن داخل JSON**: قيمة مغلَّفة بـ `"..."` لمنع
+  الالتباس بين اسم مدرسة جزئي وكاملة.
+- **HARD_LIMIT** لكل بحث (500 صف) لمنع DoS.
+- **Fallback على seed**: عند exception أو جدول فارغ تمامًا، نسقط بأمان
+  إلى مزوّد seed بدلاً من إعادة خطأ تقني للمستخدم.
+- **التحقّق العلمي للمحتوى**: حقول `source_type`, `verification_status`,
+  `source_name`, `source_url`, `is_original_text`, `reviewer_note`
+  تُحفظ في D1 وتُعاد في الـ API لتمييز النص الأصلي عن العيّنة.
+
 ## 10. التحديثات الأمنية للاعتماديات
 
 - نراقب `npm audit` بانتظام.
 - لا توجد اعتماديات إنتاج خارج Hono (مكتبة واحدة).
 - التحديثات الأمنية الرئيسية تُطبَّق في غضون 7 أيام من إصدار التصحيح.
+
+## 10.1 سياسة المحتوى الديني (Religious content policy)
+
+- **يُمنع** إضافة نصوص قرآن أو تفسير غير موثَّقة بمصدر علمي معتمد.
+- العيّنات المضمَّنة في `src/data/*` صغيرة، مُعلَّمة بـ `isSample: true` و
+  `source_type: 'sample'`، ومُعرَّف منها مصدرها بوضوح.
+- نصّ القرآن الكامل لا يُستورد إلا من مصادر معتمدة (مجمع الملك فهد لطباعة
+  المصحف الشريف — `https://qurancomplex.gov.sa/`) عبر `npm run validate:quran`
+  مع `--strict --full`.
+- نصوص التفسير لا تُستورد إلا من مصادر مذكورة بـ `sourceUrl` يبدأ بـ `https://`
+  ومرفقة بـ `edition`/`volume`/`page` للتدقيق.
+- مدقّق `validate-quran-json.mjs` يرفض:
+  - رقم سورة خارج 1..114، رقم آية خارج النطاق الكنسي للسورة.
+  - أرقام عشرية للسورة/الآية.
+  - نصّ فارغ أو يحتوي حرفيًا كلمة `undefined`.
+  - `sourceUrl` لا يبدأ بـ `https://`.
+  - تكرارات (نفس الـ surah:ayah) داخل الملف.
+  - وضع `--full` يتطلب 6236 آية مع تغطية كل 114 سورة لعددها الكنسي.
+
+## 10.2 التحقّق المحلي عبر D1
+
+- `npm run d1:smoke` (سكربت `scripts/d1-smoke-check.mjs`) يفحص:
+  المايجرشنز، seed-data.sql/json (PRAGMA/BEGIN/COMMIT، لا undefined/NaN)،
+  parsability لـ `wrangler.jsonc`، حالة D1 binding، توفّر CLI.
+- لا يحتاج هذا السكربت أي Cloudflare secrets ويعمل في CI بأمان.
+- `wrangler.jsonc` يحتفظ بـ D1 binding **معطَّلًا** (placeholder
+  `REPLACE_WITH_REAL_D1_ID`) كافتراضي آمن لمنع تسريب database_id حقيقي.
 
 ## 11. نسخ احتياطية وانتعاش
 

@@ -205,13 +205,17 @@
 ---
 
 ## 7) الأمان
-- `secureHeaders` (CSP صارم، Referrer-Policy، X-Content-Type-Options) في كل الطلبات.
-- CORS مقيّد على `/api/*` بقراءة فقط.
+- `secureHeaders` (CSP صارم، Referrer-Policy، X-Content-Type-Options، HSTS، COOP، CORP) في كل الطلبات.
+- CORS مقيّد على `/api/*` بقراءة فقط (`GET/HEAD/OPTIONS`، `credentials: false`).
 - Validation على كل المعاملات (whitelisting للـ enums، تحجيم الاستعلامات، `parseIntSafe`).
-- لا قاعدة بيانات SQL مكشوفة → لا حقن SQL ممكن في النسخة الحالية.
-- منع XSS عبر JSX escaping تلقائي + CSP صارم.
-- لا تُكشف رسائل الأخطاء الداخلية (`onError` يعرض صفحة عامة).
+- **D1 Provider**: جميع استعلامات SQL عبر `prepare().bind()` فقط — لا concatenation
+  لقيم المستخدم. ORDER BY و searchIn من قوائم بيضاء حصرًا. LIKE patterns مع
+  `ESCAPE '\\'` لتهريب `%`/`_`/`\`. HARD_LIMIT = 500 صف لكل بحث.
+- منع XSS عبر JSX escaping تلقائي + CSP صارم (`script-src 'self' 'sha256-...'` بدون `unsafe-inline`).
+- لا تُكشف رسائل الأخطاء الداخلية (`onError` يعرض صفحة عامة + `/api/*` تُعيد JSON موحّدًا).
 - ملفات السرّيات في `.env`/`.dev.vars` ضمن `.gitignore`.
+- لا توجد مسارات admin، ولا نقاط كتابة علنية. `database_id` في `wrangler.jsonc` placeholder افتراضًا.
+- المحتوى الديني: لا تُضاف نصوص قرآن/تفسير دون مصدر موثَّق وعلامة `sourceUrl`. راجع `SECURITY.md` §10.1.
 
 ## 8) الأداء و SEO
 - **SSR كامل** على الحافة (Cloudflare Workers) — TTFB منخفض جدًا.
