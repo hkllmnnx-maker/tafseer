@@ -14,7 +14,7 @@ jobs:
   build-and-verify:
     name: Build & Verify Data
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
 
     steps:
       - name: Checkout repository
@@ -46,6 +46,24 @@ jobs:
             echo "Invalid sample correctly rejected."
           fi
 
+      - name: Export seed → SQL/JSON (seed-to-d1)
+        # Generates dist/import/seed-data.sql and seed-data.json.
+        # Step also enforces internal validation; fails on schema/whitelist errors.
+        run: npm run export:seed-sql
+
+      - name: Check generated SQL has no 'undefined' / 'NaN'
+        # Defensive guard: if any literal undefined/NaN slipped into SQL,
+        # we fail CI immediately so prod imports never load corrupt data.
+        run: |
+          if grep -E "\bundefined\b|\bNaN\b" dist/import/seed-data.sql; then
+            echo "::error::Generated SQL contains forbidden values (undefined/NaN)."
+            exit 1
+          fi
+          echo "SQL is clean."
+
+      - name: Run unit tests
+        run: npm test
+
       - name: Build (Cloudflare Pages)
         run: npm run build
 
@@ -53,4 +71,6 @@ jobs:
         run: |
           test -f dist/_worker.js
           test -d dist/static || true
+          test -f dist/import/seed-data.sql
+          test -f dist/import/seed-data.json
           echo "Build artefacts look OK."
