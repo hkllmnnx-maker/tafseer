@@ -2,15 +2,17 @@
 // Service Worker — منصّة تفسير
 // استراتيجية:
 //   - الأصول الثابتة (/static/*, /manifest.json, الأيقونات): cache-first مع تحديث في الخلفية.
-//   - صفحات HTML والـ API: network-first مع رجوع للكاش عند انقطاع الشبكة.
+//   - صفحات HTML والـ API الخفيفة: network-first مع رجوع للكاش عند انقطاع الشبكة.
 //   - عند نشر إصدار جديد (CACHE_VERSION): يُمسح الكاش القديم تلقائيًا، ويتم تفعيل
 //     عامل الخدمة الجديد فورًا (skipWaiting + clients.claim) لمنع علوق المستخدم
 //     على نسخة قديمة.
 //   - يدعم رسالة 'SKIP_WAITING' حتى يستطيع الـ JS في الصفحة فرض التحديث الفوري.
+//   - لا نخزّن: /api/export/*, /api/search*, /api/suggest*, sitemap.xml, robots.txt
+//     لأنها قد تتغيّر بسرعة أو تحمل بيانات حسّاسة بالاستعلامات.
 // =============================================================================
 
 // رفع الرقم في كل deploy لتجاهل الكاش القديم تلقائيًا.
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v4'
 const STATIC_CACHE = `tafseer-static-${CACHE_VERSION}`
 const RUNTIME_CACHE = `tafseer-runtime-${CACHE_VERSION}`
 
@@ -35,7 +37,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    // امسح كل الكاشات التي لا تخصّ هذا الإصدار.
+    // امسح كل الكاشات التي لا تخصّ هذا الإصدار (cleanup للإصدارات السابقة).
     const keys = await caches.keys()
     await Promise.all(
       keys
@@ -68,6 +70,16 @@ function networkWithTimeout(req, ms) {
   })
 }
 
+// مسارات لا يجب تخزينها أبدًا (تتغيّر بسرعة أو تحمل بيانات استعلامية).
+function shouldBypass(url) {
+  if (url.pathname.startsWith('/api/export/')) return true
+  if (url.pathname.startsWith('/api/search')) return true
+  if (url.pathname.startsWith('/api/suggest')) return true
+  if (url.pathname === '/sitemap.xml') return true
+  if (url.pathname === '/robots.txt') return true
+  return false
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request
   // لا نعالج إلا GET.
@@ -78,10 +90,10 @@ self.addEventListener('fetch', e => {
   // لا نعالج الطلبات عبر النطاقات.
   if (url.origin !== self.location.origin) return
 
-  // لا نخزّن مسارات البيانات الديناميكيّة الحرجة (export/استيراد).
-  if (url.pathname.startsWith('/api/export/')) return
+  // مسارات يجب تجاوز SW عليها (تذهب مباشرة إلى الشبكة).
+  if (shouldBypass(url)) return
 
-  // الأصول الثابتة → cache-first + تحديث في الخلفية.
+  // الأصول الثابتة → cache-first + تحديث في الخلفية (stale-while-revalidate).
   const isStatic =
     url.pathname.startsWith('/static/') ||
     url.pathname === '/manifest.json' ||
@@ -100,21 +112,51 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  // باقي المسارات (HTML, API ما عدا /export/*) → network-first مع fallback للكاش.
+  // هل المسار من /api/* (نتعامل معه بحذر إضافي)؟
+  const isApi = url.pathname.startsWith('/api/')
+
+  // باقي المسارات (HTML, API الخفيفة) → network-first مع fallback للكاش.
   e.respondWith((async () => {
     const cache = await caches.open(RUNTIME_CACHE)
     try {
       const res = await networkWithTimeout(req, 4000)
+      // نحفظ فقط الإجابات الناجحة وغير الخاصّة (basic).
       if (res && res.status === 200 && res.type === 'basic') {
-        cache.put(req, res.clone()).catch(() => {})
+        // احترام Cache-Control: no-store / private إن وُجد.
+        const cc = res.headers.get('cache-control') || ''
+        if (!/no-store|private/i.test(cc)) {
+          cache.put(req, res.clone()).catch(() => {})
+        }
       }
       return res
     } catch (_) {
+      // الشبكة فشلت: حاول الإجابة من الكاش.
       const cached = await cache.match(req)
-      if (cached) return cached
-      // fallback نهائي للصفحة الرئيسية إن كانت الشبكة معطّلة كليًا.
-      const home = await cache.match('/') || await caches.match('/')
-      if (home) return home
+      if (cached) {
+        // إذا كانت من API، أضف رأسًا يخبر التطبيق أنّ الإجابة من الكاش.
+        if (isApi) {
+          const headers = new Headers(cached.headers)
+          headers.set('x-from-sw-cache', '1')
+          return new Response(cached.body, {
+            status: cached.status,
+            statusText: cached.statusText,
+            headers,
+          })
+        }
+        return cached
+      }
+      // fallback نهائي للصفحة الرئيسية إن كانت الشبكة معطّلة كليًا (للـ HTML فقط).
+      if (!isApi) {
+        const home = await cache.match('/') || await caches.match('/')
+        if (home) return home
+      }
+      // لـ API: نُرجع JSON بسيطًا حتى لا تنكسر الواجهة.
+      if (isApi) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'offline', message: 'تعذّر الاتصال بالشبكة' }),
+          { status: 503, headers: { 'content-type': 'application/json; charset=utf-8' } }
+        )
+      }
       return new Response('Offline', { status: 503, statusText: 'Offline' })
     }
   })())
