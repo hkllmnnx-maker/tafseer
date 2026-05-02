@@ -8,7 +8,7 @@ import { getDetailedStats } from '../../lib/search'
 import { getSourceTypeMeta, getVerificationMeta } from '../../lib/scientific'
 import { SourceTypeBadge, VerificationBadge } from '../components/badges'
 
-export const DashboardPage = () => {
+export const DashboardPage = ({ dataMode = 'seed' }: { dataMode?: 'seed' | 'd1' } = {}) => {
   const s = getDetailedStats()
   const maxBookCount = Math.max(1, ...s.perBook.map(b => b.tafseersCount))
   const maxSchoolCount = Math.max(1, ...s.bySchool.map(b => b.tafseersCount))
@@ -33,6 +33,26 @@ export const DashboardPage = () => {
             نظرة شاملة على محتوى التطبيق: عدد التفاسير لكل كتاب، توزيع المؤلفين بالقرون،
             المدارس التفسيرية، السور الأكثر تغطية، وحالة التوثيق العلمي. البيانات تُحسب وقت الطلب من الذاكرة.
           </p>
+          <div class="flex flex-wrap gap-2 mt-3" style="align-items:center">
+            <span
+              class={`badge ${dataMode === 'd1' ? 'badge-success' : 'badge-gold'}`}
+              title={dataMode === 'd1'
+                ? 'مصدر البيانات: قاعدة Cloudflare D1'
+                : 'مصدر البيانات: العيّنة المضمّنة (seed) — لم يتم ربط D1 بعد'}
+            >
+              <IconDatabase size={12} />
+              {dataMode === 'd1' ? 'وضع D1' : 'وضع العيّنة (Seed)'}
+            </span>
+            <span class="badge" title="نسبة تغطية القرآن في العيّنة الحالية">
+              تغطية القرآن: {s.scientific.quranCoveragePercent}%
+            </span>
+            <span class="badge" title="إجمالي النصوص التفسيرية المتوفرة">
+              {s.totals.tafseers} تفسير
+            </span>
+            <a href="/methodology" class="text-accent text-xs" style="margin-inline-start:auto">
+              منهجية التوثيق ↗
+            </a>
+          </div>
         </div>
 
         {/* Totals */}

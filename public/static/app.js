@@ -774,6 +774,112 @@
     }
   }
 
+  // ============== Copy All Tafseers (آية → نسخ شامل) ==============
+  function initCopyAllTafseers() {
+    const btn = document.getElementById('copy-all-tafseers')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+      const surah = btn.getAttribute('data-surah')
+      const ayah = btn.getAttribute('data-ayah')
+      const surahName = btn.getAttribute('data-surah-name') || ''
+      const cards = document.querySelectorAll('.tafseer-card')
+      if (!cards.length) { showToast('لا توجد تفاسير'); return }
+      const visibleCards = Array.from(cards).filter(c => c.style.display !== 'none')
+      const list = visibleCards.length ? visibleCards : Array.from(cards)
+      const lines = []
+      lines.push('— سورة ' + surahName + ' (' + surah + ') : آية ' + ayah + ' —')
+      lines.push('')
+      list.forEach((card, idx) => {
+        const bookName = (card.querySelector('.tafseer-book-name') || {}).innerText || ''
+        const authorName = (card.querySelector('.tafseer-author-name') || {}).innerText || ''
+        const body = (card.querySelector('.tafseer-body') || {}).innerText || ''
+        const citation = (card.querySelector('.source-citation') || {}).innerText || ''
+        lines.push((idx + 1) + ') ' + bookName.trim())
+        if (authorName.trim()) lines.push('   ' + authorName.trim())
+        lines.push('')
+        lines.push(body.trim())
+        if (citation.trim()) lines.push('\n— المصدر —\n' + citation.trim())
+        lines.push('')
+        lines.push('————————')
+        lines.push('')
+      })
+      lines.push('الرابط: ' + window.location.href)
+      lines.push('ملاحظة: راجع المصادر الأصلية للتحقّق العلمي.')
+      const text = lines.join('\n')
+      try {
+        await navigator.clipboard.writeText(text)
+        showToast('تم نسخ كل التفاسير (' + list.length + ')')
+      } catch (e) {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        document.body.appendChild(ta)
+        ta.select()
+        try { document.execCommand('copy'); showToast('تم النسخ') } catch (er) { showToast('تعذر النسخ') }
+        document.body.removeChild(ta)
+      }
+    })
+  }
+
+  // ============== Documented-only toggle (إظهار الموثّقة فقط) ==============
+  function initDocumentedOnlyToggle() {
+    const btn = document.getElementById('toggle-documented-only')
+    if (!btn) return
+    btn.addEventListener('click', () => {
+      const pressed = btn.getAttribute('aria-pressed') === 'true'
+      const next = !pressed
+      btn.setAttribute('aria-pressed', next ? 'true' : 'false')
+      const cards = document.querySelectorAll('.tafseer-card')
+      let shown = 0
+      cards.forEach(card => {
+        // اعتبر أيّ بطاقة تحتوي شارة "موثّق" (verified) في رأسها كموثّقة
+        const badges = card.querySelectorAll('.tafseer-badges .badge')
+        let isVerified = false
+        badges.forEach(b => {
+          const t = (b.textContent || '').trim()
+          if (t.indexOf('موثّق') >= 0 || t.indexOf('موثق') >= 0) isVerified = true
+        })
+        if (next && !isVerified) {
+          card.style.display = 'none'
+        } else {
+          card.style.display = ''
+          shown++
+        }
+      })
+      btn.textContent = next ? '📑 إظهار الكل' : '📑 الموثّقة فقط'
+      showToast(next ? ('عرض الموثّقة فقط (' + shown + ')') : 'عرض كل التفاسير')
+    })
+  }
+
+  // ============== Search Filters: Mobile collapsible ==============
+  function initSearchFilters() {
+    const btn = document.querySelector('[data-filter-toggle]')
+    const form = document.querySelector('[data-filter-form]')
+    if (!btn || !form) return
+    // إظهار الزر فقط على الشاشات الصغيرة
+    function applyResponsive() {
+      if (window.matchMedia('(max-width: 900px)').matches) {
+        btn.style.display = 'inline-flex'
+        // الافتراضي: مغلق على الجوال
+        if (!form.dataset._init) {
+          form.style.display = 'none'
+          btn.setAttribute('aria-expanded', 'false')
+          form.dataset._init = '1'
+        }
+      } else {
+        btn.style.display = 'none'
+        form.style.display = ''
+        btn.setAttribute('aria-expanded', 'true')
+      }
+    }
+    applyResponsive()
+    window.addEventListener('resize', applyResponsive)
+    btn.addEventListener('click', () => {
+      const open = form.style.display !== 'none'
+      form.style.display = open ? 'none' : ''
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true')
+    })
+  }
+
   // ============== Init ==============
   document.addEventListener('DOMContentLoaded', () => {
     initTheme()
@@ -783,6 +889,9 @@
     initTafseerCollapse()
     initFontSize()
     initSearchSuggestions()
+    initSearchFilters()
+    initCopyAllTafseers()
+    initDocumentedOnlyToggle()
     updateBookmarkBadge()
     initBookmarkToggle()
     initBookmarksPage()

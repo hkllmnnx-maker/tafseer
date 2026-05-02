@@ -121,6 +121,28 @@ export const AyahPage = ({
             <IconBookmark size={16} />
             <span class="bookmark-toggle-label">حفظ في المفضلة</span>
           </button>
+          {tafseers.length > 0 ? (
+            <>
+              <button
+                class="btn btn-secondary btn-sm"
+                id="copy-all-tafseers"
+                data-surah={surah}
+                data-ayah={ayah}
+                data-surah-name={surahData.name}
+                title="نسخ كل التفاسير مع الإسناد">
+                <IconCopy size={16} /> نسخ كل التفاسير
+              </button>
+              {verifiedCount > 0 && verifiedCount < tafseers.length ? (
+                <button
+                  class="btn btn-secondary btn-sm"
+                  id="toggle-documented-only"
+                  aria-pressed="false"
+                  title="إظهار التفاسير الموثّقة فقط">
+                  📑 الموثّقة فقط
+                </button>
+              ) : null}
+            </>
+          ) : null}
           <span style="margin-inline-start:auto" class="text-sm text-tertiary">
             {tafseers.length > 0 ? `${tafseers.length} مصدر تفسيري` : 'لا توجد تفاسير محفوظة لهذه الآية'}
           </span>

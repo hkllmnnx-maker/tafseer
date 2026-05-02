@@ -123,7 +123,19 @@ export const SearchPage = ({
         <div class="search-layout">
           {/* Filters Sidebar */}
           <aside class="filter-panel">
-            <form method="get" action="/search">
+            {/* زر إظهار/إخفاء الفلاتر على الجوال */}
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm filter-toggle-mobile"
+              aria-expanded="false"
+              aria-controls="filter-form"
+              data-filter-toggle="1"
+              style="display:none;width:100%;justify-content:center;margin-bottom:.6rem"
+            >
+              <IconFilter size={14} /> إظهار/إخفاء الفلاتر
+              {hasAnyFilter(filters) ? <span class="badge badge-gold" style="margin-inline-start:.5rem">نشطة</span> : null}
+            </button>
+            <form id="filter-form" method="get" action="/search" data-filter-form>
               {/* Carry over query */}
               <input type="hidden" name="q" value={filters.q || ''} />
               {filters.surah ? <input type="hidden" name="surah" value={filters.surah} /> : null}
@@ -234,9 +246,14 @@ export const SearchPage = ({
                 <button type="submit" class="btn btn-primary" style="width:100%">
                   تطبيق الفلاتر
                 </button>
-                <a href="/search" class="btn btn-ghost btn-sm mt-2" style="width:100%;display:flex">
-                  مسح الفلاتر
+                <a href="/search" class="btn btn-ghost btn-sm mt-2" style="width:100%;display:flex;justify-content:center" title="إعادة ضبط كل الفلاتر">
+                  ↺ إعادة ضبط كل الفلاتر
                 </a>
+                {hasAnyFilter(filters) ? (
+                  <p class="text-xs text-tertiary mt-2" style="text-align:center">
+                    عدد الفلاتر النشطة: {countActiveFilters(filters)}
+                  </p>
+                ) : null}
               </div>
             </form>
           </aside>
@@ -397,4 +414,19 @@ function hasAnyFilter(f: SearchFilters): boolean {
     (f.sourceTypes?.length) || (f.verificationStatuses?.length) ||
     f.centuryFrom || f.centuryTo
   )
+}
+
+function countActiveFilters(f: SearchFilters): number {
+  let n = 0
+  if (f.surah) n++
+  if (f.ayahFrom) n++
+  if (f.ayahTo) n++
+  n += (f.bookIds?.length || 0)
+  n += (f.authorIds?.length || 0)
+  n += (f.schools?.length || 0)
+  n += (f.sourceTypes?.length || 0)
+  n += (f.verificationStatuses?.length || 0)
+  if (f.centuryFrom) n++
+  if (f.centuryTo) n++
+  return n
 }

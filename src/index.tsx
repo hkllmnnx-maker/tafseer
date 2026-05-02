@@ -363,14 +363,18 @@ app.get('/history', c => c.render(
   } as any,
 ))
 
-app.get('/dashboard', c => c.render(
-  <DashboardPage />,
-  {
-    title: 'لوحة الإحصاءات',
-    description: 'نظرة شاملة على محتوى التطبيق: الكتب، المؤلفون، المدارس التفسيرية، توزيع القرون، والسور الأكثر تغطية.',
-    canonical: canonicalUrl(c, '/dashboard'),
-  } as any,
-))
+app.get('/dashboard', c => {
+  const env: any = c.env || {}
+  const dataMode: 'seed' | 'd1' = env.DB ? 'd1' : 'seed'
+  return c.render(
+    <DashboardPage dataMode={dataMode} />,
+    {
+      title: 'لوحة الإحصاءات',
+      description: 'نظرة شاملة على محتوى التطبيق: الكتب، المؤلفون، المدارس التفسيرية، توزيع القرون، والسور الأكثر تغطية.',
+      canonical: canonicalUrl(c, '/dashboard'),
+    } as any,
+  )
+})
 
 // ============== JSON API ==============
 // نستعمل طبقة DataProvider (seed أو D1) لجلب الإحصاءات.
