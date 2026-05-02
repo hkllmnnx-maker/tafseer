@@ -200,39 +200,68 @@ for (const a of ayahs) {
   ayahDupKey.add(k)
 }
 
-// 5) التحقق من التفاسير
+// 5) التحقق من التفاسير + إحصاءات علميّة
 const tafseerIdSet = new Set()
 let missingMeta = 0
+const tafByBook = new Map()
+const tafBySurah = new Map()
+const sourceCounts = new Map()
+const verifCounts = new Map()
+const tafSurahAyahKey = new Set()
 for (const t of tafseers) {
   if (tafseerIdSet.has(t.id)) err(`id تفسير مكرّر: ${t.id}`)
   tafseerIdSet.add(t.id)
   if (!t.bookId || !bookSet.has(t.bookId)) {
     err(`tafseer ${t.id} يشير إلى كتاب غير موجود: ${t.bookId}`)
+  } else {
+    tafByBook.set(t.bookId, (tafByBook.get(t.bookId) || 0) + 1)
   }
   const s = surahMap.get(t.surah)
   if (!s) {
     err(`tafseer ${t.id} يشير إلى سورة غير موجودة: ${t.surah}`)
   } else if (!Number.isInteger(t.ayah) || t.ayah < 1 || t.ayah > s.ayahCount) {
     err(`tafseer ${t.id}: رقم آية غير صالح ${t.ayah} (سورة ${t.surah} = ${s.ayahCount})`)
+  } else {
+    tafBySurah.set(t.surah, (tafBySurah.get(t.surah) || 0) + 1)
+    tafSurahAyahKey.add(`${t.surah}:${t.ayah}`)
   }
   if (!t.text || String(t.text).trim().length < 5) {
     err(`tafseer ${t.id}: نص قصير جدًا أو فارغ.`)
   }
+  // فحوص علمية إضافيّة:
+  // - أي تفسير verified يجب ألّا يكون قصيرًا جدًا (< 20 حرف).
+  if (t.verificationStatus === 'verified' && t.text && String(t.text).trim().length < 20) {
+    warn(`tafseer ${t.id}: مُعلَّن verified لكنّ النص قصير (<20).`)
+  }
+  // - أي تفسير original-text يستحسن أن يحوي مصدرًا واضحًا.
+  if (t.sourceType === 'original-text' && !t.sourceName && verbose) {
+    warn(`tafseer ${t.id}: original-text بدون sourceName معلَن.`)
+  }
   // ملاحظة: التطبيق يطبّق defaults محافظة في وقت التشغيل (انظر backfill في tafseers.ts).
-  // لذا نعتبر القيمة المفقودة "مقبولة" (ستُعبَّأ تلقائيًا) لكن نعدّها "ضمنيّة"،
-  // ونرفع خطأ فقط عند وجود قيمة *غير صالحة* (نوع غير معروف).
   if (t.sourceType !== undefined && !ALLOWED_SOURCE_TYPES.has(t.sourceType)) {
     err(`tafseer ${t.id}: sourceType غير صالح (${t.sourceType}).`)
     missingMeta++
   } else if (t.sourceType === undefined) {
-    // يُعتبر summary/sample ضمنيًا — أحصِ كتحذير فقط في وضع verbose
     if (verbose) warn(`tafseer ${t.id}: sourceType غير معلَن (سيُعبَّأ ضمنيًا 'summary'/'sample').`)
+    sourceCounts.set('(implicit)', (sourceCounts.get('(implicit)') || 0) + 1)
+  } else {
+    sourceCounts.set(t.sourceType, (sourceCounts.get(t.sourceType) || 0) + 1)
   }
   if (t.verificationStatus !== undefined && !ALLOWED_VERIFICATION.has(t.verificationStatus)) {
     err(`tafseer ${t.id}: verificationStatus غير صالح (${t.verificationStatus}).`)
     missingMeta++
   } else if (t.verificationStatus === undefined) {
     if (verbose) warn(`tafseer ${t.id}: verificationStatus غير معلَن (سيُعبَّأ ضمنيًا).`)
+    verifCounts.set('(implicit)', (verifCounts.get('(implicit)') || 0) + 1)
+  } else {
+    verifCounts.set(t.verificationStatus, (verifCounts.get(t.verificationStatus) || 0) + 1)
+  }
+}
+
+// 5.b) فحص: هل توجد كتب بدون أي تفسير؟
+for (const b of books) {
+  if (!tafByBook.has(b.id)) {
+    if (verbose) warn(`الكتاب ${b.id} لا يحوي أي تفسير في البيانات الأولية.`)
   }
 }
 
@@ -254,6 +283,21 @@ console.log(`المؤلفون:    ${C.bold(String(authors.length))}`)
 console.log(`الكتب:       ${C.bold(String(books.length))}`)
 console.log(`التفاسير:    ${C.bold(String(tafseers.length))} (بيانات علمية ناقصة: ${missingMeta})`)
 console.log(`الموضوعات:   ${C.bold(String(categories.length))}`)
+console.log(C.dim('───────────────────────────────────────────────────────────'))
+console.log(C.bold('توزّع أنواع المصادر:'))
+for (const [k, v] of [...sourceCounts.entries()].sort((a,b) => b[1]-a[1])) {
+  console.log(`  ${k.padEnd(18)} ${v}`)
+}
+console.log(C.bold('توزّع حالات التحقّق:'))
+for (const [k, v] of [...verifCounts.entries()].sort((a,b) => b[1]-a[1])) {
+  console.log(`  ${k.padEnd(20)} ${v}`)
+}
+const topBooks = [...tafByBook.entries()].sort((a,b) => b[1]-a[1]).slice(0, 5)
+console.log(C.bold('أعلى 5 كتب من حيث عدد التفاسير:'))
+for (const [b, n] of topBooks) console.log(`  ${b.padEnd(18)} ${n}`)
+const topSurahs = [...tafBySurah.entries()].sort((a,b) => b[1]-a[1]).slice(0, 5)
+console.log(C.bold('أعلى 5 سور من حيث عدد التفاسير:'))
+for (const [s, n] of topSurahs) console.log(`  سورة ${String(s).padStart(3)}        ${n}`)
 console.log(C.dim('───────────────────────────────────────────────────────────'))
 
 if (errors.length === 0) {
