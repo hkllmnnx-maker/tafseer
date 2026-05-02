@@ -61,6 +61,36 @@ jobs:
             echo "Invalid Quran sample correctly rejected."
           fi
 
+      - name: Validate Tafsir sample (valid file)
+        # Ensures validate-tafsir-json.mjs accepts a well-formed Tafsir JSON sample.
+        # Independent of Cloudflare; no secrets needed.
+        run: npm run validate:tafsir-sample
+
+      - name: Validate Tafsir sample in --strict mode
+        # The valid Tafsir fixture must also pass the strictest contract
+        # (sourceUrl on every entry, book.edition, no 'unverified' status).
+        run: node scripts/importers/validate-tafsir-json.mjs fixtures/import-samples/tafsir-valid-sample.json --strict
+
+      - name: Validate Tafsir invalid sample (must fail)
+        # The invalid Tafsir fixture MUST be rejected — covers missing license,
+        # http:// sourceUrl, original-text without sourceName/edition, mismatched
+        # isOriginalText, surah/ayah out of range, empty text, literal "undefined",
+        # invalid sourceType / verificationStatus, duplicate id, and unknown school.
+        # If the validator passes it, CI fails.
+        run: |
+          if node scripts/importers/validate-tafsir-json.mjs fixtures/import-samples/tafsir-invalid-sample.json --dry-run; then
+            echo "::error::Invalid Tafsir sample was accepted; validator is broken."
+            exit 1
+          else
+            echo "Invalid Tafsir sample correctly rejected."
+          fi
+
+      - name: Verify Quran D1 (dry-run — prints commands only)
+        # Prints the SQL commands that would be run against D1 to verify
+        # the Quran data (count = 6236, surahs = 114, key ayahs present).
+        # Does NOT require Cloudflare secrets — purely informational in CI.
+        run: npm run verify:quran-d1:dry
+
       - name: D1 smoke check (dry-run, no Cloudflare secrets)
         # Verifies seed SQL + migrations exist and prints the commands needed
         # to load them into a real D1 instance. Does NOT require any secret.
