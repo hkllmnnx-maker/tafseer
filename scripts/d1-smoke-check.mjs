@@ -9,6 +9,7 @@
 //   3) طباعة الأوامر الموصَى بها لتشغيل D1 محليًا.
 //   4) (اختياري) إن كان wrangler متاحًا و wrangler.jsonc يحتوي d1_databases
 //      مفعَّلًا، يحاول تنفيذ استعلام قراءة آمن (`SELECT 1`) على المحلي.
+//   5) يحسب nextStep (سلسلة قصيرة) تُخبر المستخدم بأوّل أمر يجب تنفيذه.
 //
 // لا يكتب أي شيء على القرص. لا يحتاج أسرارًا. لا يفشل CI إذا لم يكن
 // wrangler متاحًا أو D1 binding مفعَّلًا — فقط يطبع تقريرًا.
@@ -18,6 +19,7 @@
 //   node scripts/d1-smoke-check.mjs
 //   node scripts/d1-smoke-check.mjs --json
 //   node scripts/d1-smoke-check.mjs --strict   # يفشل إذا artefacts ناقصة
+//   node scripts/d1-smoke-check.mjs --json --strict
 // =============================================================================
 
 import fs from 'node:fs'
@@ -53,15 +55,22 @@ const report = {
   recommendations: [],
   wrangler: { available: false, version: null },
   d1Binding: { configured: false, databaseName: null, hasPlaceholder: false },
+  // ملخّص قرار النهاية: ما الأمر التالي الذي يجب أن ينفّذه المستخدم؟
+  nextStep: null,
+  // تصنيف الحالة بشكل مكينة-قابلة-للقراءة
+  status: 'unknown',
 }
 
-function add(name, ok, info = '') {
-  report.checks.push({ name, ok, info })
-  if (!ok) report.ok = false
+function add(name, ok, info = '', strictOnly = false) {
+  report.checks.push({ name, ok, info, ...(strictOnly ? { strictOnly: true } : {}) })
+  // لا نسقط ok إلا إذا كان الفحص جوهريًا (ليس informational/strictOnly)
+  if (!ok && !strictOnly) report.ok = false
 }
 
 // 1) seed-data.sql exists?
+let seedSqlExists = false
 if (fs.existsSync(SEED_SQL)) {
+  seedSqlExists = true
   const stats = fs.statSync(SEED_SQL)
   add('dist/import/seed-data.sql exists', true, `${(stats.size / 1024).toFixed(1)} KB`)
 
@@ -88,6 +97,7 @@ if (fs.existsSync(SEED_SQL)) {
 } else {
   add('dist/import/seed-data.sql exists', false, 'Run: npm run export:seed-sql')
   report.recommendations.push('npm run export:seed-sql')
+  report.nextStep = 'npm run export:seed-sql'
 }
 
 // 2) seed-data.json exists?
@@ -96,11 +106,14 @@ if (fs.existsSync(SEED_JSON)) {
   add('dist/import/seed-data.json exists', true, `${(stats.size / 1024).toFixed(1)} KB`)
 } else {
   add('dist/import/seed-data.json exists', false, 'Run: npm run export:seed-sql')
+  if (!report.nextStep) report.nextStep = 'npm run export:seed-sql'
 }
 
 // 3) migrations directory
+let hasMigrations = false
 if (fs.existsSync(MIG_DIR)) {
   const files = fs.readdirSync(MIG_DIR).filter(f => f.endsWith('.sql')).sort()
+  hasMigrations = files.length > 0
   add('db/migrations/*.sql present', files.length > 0, files.join(', ') || '(empty)')
   report.migrations = files
 } else {
@@ -181,6 +194,9 @@ if (report.wrangler.available && report.d1Binding.configured && report.d1Binding
     }
     add('D1 local SELECT 1 (read-only)', liveD1.ok,
         liveD1.ok ? 'OK' : 'failed (likely DB not initialized — run db:migrate:local)')
+    if (!liveD1.ok && !report.nextStep) {
+      report.nextStep = 'npm run db:migrate:local'
+    }
   } catch (e) {
     liveD1 = { attempted: true, ok: false, error: e.message }
     add('D1 local SELECT 1 (read-only)', false, e.message)
@@ -196,6 +212,39 @@ if (report.wrangler.available && report.d1Binding.configured && report.d1Binding
   )
 }
 report.d1LiveCheck = liveD1
+
+// =============================================================================
+// Compute final status + nextStep recommendation
+// =============================================================================
+// status taxonomy:
+//   - 'artefacts-missing'     → seed SQL/migrations مفقود (يجب إنشاؤه أوّلاً)
+//   - 'binding-disabled'      → كل artefacts جاهزة لكن D1 binding معلَّق
+//   - 'binding-active-ok'     → D1 binding نشط واستعلام SELECT 1 نجح
+//   - 'binding-active-empty'  → binding نشط لكن DB فارغ/غير مهيّأ
+//   - 'wrangler-missing'      → wrangler غير مثبَّت
+if (!seedSqlExists || !hasMigrations) {
+  report.status = 'artefacts-missing'
+  if (!report.nextStep) report.nextStep = 'npm run export:seed-sql'
+} else if (!report.wrangler.available) {
+  report.status = 'wrangler-missing'
+  if (!report.nextStep) report.nextStep = 'npm install'
+} else if (!report.d1Binding.configured) {
+  report.status = 'binding-disabled'
+  if (!report.nextStep) {
+    report.nextStep = 'See docs/d1-smoke-test.md to enable D1 locally'
+  }
+} else if (liveD1 && liveD1.attempted && liveD1.ok) {
+  report.status = 'binding-active-ok'
+  if (!report.nextStep) {
+    report.nextStep = 'npx wrangler d1 execute ' + report.d1Binding.databaseName +
+                      ' --local --file=dist/import/seed-data.sql'
+  }
+} else if (liveD1 && liveD1.attempted && !liveD1.ok) {
+  report.status = 'binding-active-empty'
+  if (!report.nextStep) report.nextStep = 'npm run db:migrate:local'
+} else {
+  report.status = 'unknown'
+}
 
 // =============================================================================
 // Output
@@ -220,6 +269,11 @@ if (report.recommendations.length) {
   for (const r of report.recommendations) console.log('  ' + c.blue(r))
 }
 
+console.log(c.dim('───────────────────────────────────────────────────────────'))
+console.log(c.bold('الحالة:        ') + c.yellow(report.status))
+if (report.nextStep) {
+  console.log(c.bold('الخطوة التالية: ') + c.blue(report.nextStep))
+}
 console.log(c.dim('───────────────────────────────────────────────────────────'))
 if (report.ok) {
   console.log(c.green('✓ artefacts جاهزة. يمكنك تشغيل D1 محليًا باتباع docs/d1-smoke-test.md'))
