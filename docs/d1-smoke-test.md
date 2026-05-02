@@ -151,6 +151,117 @@ npm run d1:smoke
 
 ---
 
+## ✅ تقرير تشغيل D1 محليًا فعليًا (Verified Run)
+
+تم تشغيل D1 محليًا فعليًا والتحقق من جميع نقاط النهاية. النتائج موثَّقة هنا
+كدليل أن `mode: "d1"` يعمل على البنية الحالية.
+
+### إعداد `wrangler.jsonc` المحلي (لا يُرفع إلى Git)
+
+استُخدمت قيمة `database_id` placeholder صفرية لأن `--local` لا تتصل
+بـ Cloudflare الحقيقي:
+
+```jsonc
+{
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tafseer-production",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "db/migrations"
+    }
+  ]
+}
+```
+
+> 💡 **`migrations_dir`** ضرورية لأن المشروع يضع الترحيلات في `db/migrations/`
+> بدلًا من المسار الافتراضي `migrations/`.
+
+### الخطوات المنفَّذة بالكامل
+
+```bash
+# 1) توليد seed SQL
+npm run export:seed-sql
+# ✓ dist/import/seed-data.sql  (177.1 KB)
+# ✓ dist/import/seed-data.json (152.5 KB)
+
+# 2) تطبيق الترحيلات محليًا
+npx wrangler d1 migrations apply tafseer-production --local
+# ✅ 0001_initial_schema.sql
+# ✅ 0002_optional_fts5.sql
+# 🚣 42 commands executed successfully
+
+# 3) تحميل seed إلى D1 المحلي
+npx wrangler d1 execute tafseer-production --local \
+  --file=dist/import/seed-data.sql
+# success: true
+
+# 4) تأكيد الأعداد في D1
+npx wrangler d1 execute tafseer-production --local \
+  --command="SELECT (SELECT COUNT(*) FROM surahs) AS surahs,
+                    (SELECT COUNT(*) FROM ayahs) AS ayahs,
+                    (SELECT COUNT(*) FROM tafsir_books) AS books,
+                    (SELECT COUNT(*) FROM authors) AS authors,
+                    (SELECT COUNT(*) FROM tafsir_entries) AS tafseers"
+# surahs=114, ayahs=295, books=12, authors=12, tafseers=97
+
+# 5) بناء التطبيق
+npm run build
+# ✓ dist/_worker.js  332.16 kB
+
+# 6) تشغيل Wrangler Pages مع D1 binding
+npx wrangler pages dev dist --d1=DB=tafseer-production \
+  --local --ip 0.0.0.0 --port 3000
+# ✨ Compiled Worker successfully
+# Your Worker has access to the following bindings:
+#   env.DB (local-DB=tafseer-production)   D1 Database   local
+# [wrangler:info] Ready on http://0.0.0.0:3000
+```
+
+### نتائج اختبار جميع نقاط النهاية API
+
+| Endpoint | mode | الحقول الرئيسية |
+|---|---|---|
+| `/api/stats` | **d1** ✅ | surahs=114, ayahs=295, books=12, authors=12, tafseers=100 |
+| `/api/stats/detailed` | **d1** ✅ | totals, perBook, perAuthor, bySchool, byCentury, topSurahs, ayahsCoveredCount, ayahsCoverageRatio, bySourceType, byVerification, scientific |
+| `/api/ayah/1/1` | **d1** ✅ | نص الآية + 5 تفاسير |
+| `/api/ayah/999/999` | — | HTTP 404 (`surah_not_found`) |
+| `/api/search?q=الله` | **d1** ✅ | total=81, items=10 |
+| `/api/search?q=الله&sourceTypes=summary` | **d1** ✅ | الفلترة تعمل |
+| `/api/suggest?q=الرحمن` | **d1** ✅ | 8 اقتراحات |
+| `/api/surahs` | **d1** ✅ | 114 سورة |
+| `/api/books` | **d1** ✅ | 12 كتاب |
+| `/api/authors` | **d1** ✅ | 12 مؤلف |
+
+### نتائج اختبار صفحات HTML
+
+| Page | HTTP | الحجم | ملاحظات |
+|---|---|---|---|
+| `/` | 200 | ~47 KB | الصفحة الرئيسية |
+| `/search` | 200 | ~66 KB | فلاتر + شبكة بحث |
+| `/search?q=الله` | 200 | ~67 KB | نتائج فعلية من D1 |
+| `/ayah/1/1` | 200 | ~40 KB | آية + تفاسير |
+| `/ayah/999/999` | 404 | ~14 KB | معالجة سليمة |
+| `/dashboard` | 200 | ~54 KB | يعرض شارة `وضع البيانات: D1 (متّصل)` ✅ |
+| `/surahs` | 200 | ~128 KB | قائمة 114 سورة |
+| `/books` | 200 | ~36 KB | قائمة الكتب |
+| `/authors` | 200 | ~36 KB | قائمة المؤلفين |
+| `/methodology` | 200 | ~20 KB | منهجية المشروع |
+| `/sitemap.xml` | 200 | ~71 KB | يحوي كل الآيات والصفحات |
+| `/robots.txt` | 200 | 123 B | OK |
+| `/manifest.json` | 200 | ~1 KB | PWA manifest |
+
+### النتيجة
+
+✅ **DataProvider يعمل في وضع `d1` فعليًا** عبر جميع نقاط النهاية.
+✅ **شارة Dashboard** تعرض «وضع البيانات: D1 (متّصل)».
+✅ **الفلاتر** (`sourceTypes`, `verificationStatuses`) تعمل عبر D1.
+✅ **404 handling** صحيح للآيات/السور غير الموجودة.
+✅ **No real `database_id`** committed — استُخدم placeholder صفري.
+✅ **wrangler.jsonc** أُعيد إلى حالته الأصلية (D1 معلَّق) قبل الـ commit.
+
+---
+
 ## ملاحظات أمان
 
 - لا تضع `database_id` حقيقي في commit إذا كان مشروعك حساسًا.
