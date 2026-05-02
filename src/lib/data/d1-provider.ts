@@ -42,6 +42,7 @@ import type {
   Surah, Ayah, TafseerBook, Author, Category, TafseerEntry,
   SourceType, VerificationStatus,
   SearchFilters, SearchResults, Suggestion,
+  QuranCoverageSummary, ReadSurahPayload,
 } from './types'
 
 // ============== Minimal Typing for D1 ==============
@@ -470,6 +471,92 @@ export function makeD1Provider(db: D1Database): DataProvider {
         return rows.map(rowToTafseerEntry)
       } catch {
         return seedProvider.getTafseersByAyah(surah, ayah) as TafseerEntry[]
+      }
+    },
+
+    /**
+     * كل التفاسير لسورة كاملة دفعة واحدة.
+     * يخفض N+1 على /read/:n إلى استعلام واحد لكل السورة.
+     */
+    async getTafseersForSurah(surah: number): Promise<TafseerEntry[]> {
+      if (!Number.isFinite(surah)) return []
+      try {
+        const r = await db.prepare(
+          `SELECT id, book_id, author_id, surah_number, ayah_number, text,
+                  source_type, verification_status, is_original_text,
+                  source_name, edition, volume, page, source_url, reviewer_note, is_sample
+             FROM tafsir_entries
+            WHERE surah_number = ?1
+            ORDER BY ayah_number ASC, id ASC`
+        ).bind(surah).all<any>()
+        const rows = r.results || []
+        if (!rows.length) {
+          // إن كانت قاعدة البيانات فارغة بالكامل، fallback إلى seed
+          try {
+            const probe = await db.prepare('SELECT 1 AS x FROM tafsir_entries LIMIT 1').first<any>()
+            if (!probe) {
+              return (seedProvider.getTafseersForSurah?.(surah) || []) as TafseerEntry[]
+            }
+          } catch { /* تجاهل */ }
+          return []
+        }
+        return rows.map(rowToTafseerEntry)
+      } catch {
+        return (seedProvider.getTafseersForSurah?.(surah) || []) as TafseerEntry[]
+      }
+    },
+
+    /**
+     * Payload جاهز لصفحة /read/:n: السورة + الآيات + التفاسير
+     * مفهرسة حسب رقم الآية. يستخدم 3 استعلامات متوازية على D1.
+     */
+    async getReadSurahPayload(surah: number): Promise<ReadSurahPayload> {
+      try {
+        const [surahData, ayahs, tafseers] = await Promise.all([
+          this.getSurahByNumber(surah) as Promise<Surah | undefined>,
+          this.listAyahsForSurah(surah) as Promise<Ayah[]>,
+          this.getTafseersForSurah(surah) as Promise<TafseerEntry[]>,
+        ])
+        const tafseersByAyah: Record<number, TafseerEntry[]> = {}
+        for (const t of tafseers) {
+          if (!tafseersByAyah[t.ayah]) tafseersByAyah[t.ayah] = []
+          tafseersByAyah[t.ayah].push(t)
+        }
+        return { surah: surahData, ayahs, tafseersByAyah, mode: 'd1' }
+      } catch {
+        // fallback آمن إلى seed
+        const seed = seedProvider.getReadSurahPayload?.(surah)
+        return seed
+          ? { ...seed, mode: 'd1' }
+          : { surah: undefined, ayahs: [], tafseersByAyah: {}, mode: 'd1' }
+      }
+    },
+
+    /**
+     * ملخّص تغطية القرآن في D1: عدد الآيات، السور المغطّاة، اكتمال.
+     */
+    async getQuranCoverageSummary(): Promise<QuranCoverageSummary> {
+      const expectedAyahs = 6236 as const
+      try {
+        const [a, s] = await Promise.all([
+          db.prepare('SELECT COUNT(*) AS c FROM ayahs').first<any>(),
+          db.prepare('SELECT COUNT(DISTINCT surah_number) AS c FROM ayahs').first<any>(),
+        ])
+        const ayahsCount = Number(a?.c || 0)
+        const surahsCovered = Number(s?.c || 0)
+        return {
+          ayahsCount,
+          expectedAyahs,
+          surahsCovered,
+          isComplete: ayahsCount === expectedAyahs,
+          coveragePercent: +((ayahsCount / expectedAyahs) * 100).toFixed(2),
+          mode: 'd1',
+        }
+      } catch {
+        const fallback = seedProvider.getQuranCoverageSummary?.() as QuranCoverageSummary | undefined
+        return fallback
+          ? { ...fallback, mode: 'd1' }
+          : { ayahsCount: 0, expectedAyahs, surahsCovered: 0, isComplete: false, coveragePercent: 0, mode: 'd1' }
       }
     },
 

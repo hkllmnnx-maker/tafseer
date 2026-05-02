@@ -24,6 +24,32 @@ export type {
   SearchFilters, SearchResults, Suggestion,
 }
 
+/** ملخّص تغطية القرآن في قاعدة البيانات الحالية. */
+export interface QuranCoverageSummary {
+  /** عدد الآيات الموجودة فعلًا في قاعدة البيانات. */
+  ayahsCount: number
+  /** العدد المتوقَّع للقرآن الكامل (ثابت 6236). */
+  expectedAyahs: 6236
+  /** عدد السور التي تحوي آية واحدة على الأقل. */
+  surahsCovered: number
+  /** هل القرآن كامل (ayahsCount === 6236)؟ */
+  isComplete: boolean
+  /** نسبة التغطية ٪ (مدوَّرة لرقمين). */
+  coveragePercent: number
+  /** اسم المزوّد الحالي. */
+  mode: 'seed' | 'd1'
+}
+
+/** Payload جاهز لصفحة /read/:n. */
+export interface ReadSurahPayload {
+  surah: Surah | undefined
+  ayahs: Ayah[]
+  /** التفاسير مفهرسة حسب رقم الآية لتسهيل العرض. */
+  tafseersByAyah: Record<number, TafseerEntry[]>
+  /** اسم المزوّد. */
+  mode: 'seed' | 'd1'
+}
+
 /** إحصاءات إجمالية مختصرة (موحَّدة بين seed و D1). */
 export interface BasicStats {
   booksCount: number
@@ -118,6 +144,21 @@ export interface DataProvider {
   // -------- Tafseers --------
   /** كل التفاسير لآية معيّنة (مرتّبة كما في البيانات الأصلية). */
   getTafseersByAyah(surah: number, ayah: number): TafseerEntry[] | Promise<TafseerEntry[]>
+
+  /**
+   * كل التفاسير لسورة كاملة دفعة واحدة (مرتّبة بـ ayah ثم id).
+   * مهم لتجنّب N+1 على صفحة /read/:n.
+   */
+  getTafseersForSurah?(surah: number): TafseerEntry[] | Promise<TafseerEntry[]>
+
+  /**
+   * Payload جاهز لصفحة القراءة: السورة + الآيات + التفاسير
+   * مفهرسة حسب رقم الآية. يخفض عدد الجولات إلى 3 استعلامات على D1.
+   */
+  getReadSurahPayload?(surah: number): ReadSurahPayload | Promise<ReadSurahPayload>
+
+  /** ملخّص تغطية القرآن الحالية (آيات/سور/هل مكتمل). */
+  getQuranCoverageSummary?(): QuranCoverageSummary | Promise<QuranCoverageSummary>
 
   // -------- Books --------
   listBooks(): TafseerBook[] | Promise<TafseerBook[]>

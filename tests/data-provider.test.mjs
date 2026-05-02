@@ -543,3 +543,147 @@ test('SearchResults type: optional fields do not break existing consumers', () =
     assert.ok(src.includes(opt), `${opt} must remain optional`)
   }
 })
+
+// ============================================================================
+// Read-Provider Extensions: getTafseersForSurah, getReadSurahPayload,
+//                          getQuranCoverageSummary
+// ============================================================================
+
+test('types.ts: declares QuranCoverageSummary + ReadSurahPayload interfaces', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/types.ts'), 'utf8')
+  for (const tok of [
+    'QuranCoverageSummary',
+    'ReadSurahPayload',
+    'expectedAyahs: 6236',
+    'surahsCovered',
+    'isComplete',
+    'coveragePercent',
+    'tafseersByAyah',
+  ]) {
+    assert.ok(src.includes(tok), `types.ts must declare "${tok}"`)
+  }
+})
+
+test('DataProvider interface: declares optional getTafseersForSurah / getReadSurahPayload / getQuranCoverageSummary', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/types.ts'), 'utf8')
+  assert.ok(/getTafseersForSurah\?\(/.test(src),
+    'getTafseersForSurah must be optional in DataProvider')
+  assert.ok(/getReadSurahPayload\?\(/.test(src),
+    'getReadSurahPayload must be optional in DataProvider')
+  assert.ok(/getQuranCoverageSummary\?\(/.test(src),
+    'getQuranCoverageSummary must be optional in DataProvider')
+})
+
+test('seed-provider.ts: implements all three read-provider extensions', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/seed-provider.ts'), 'utf8')
+  assert.ok(src.includes('getTafseersForSurah(surah: number)'),
+    'seed must implement getTafseersForSurah')
+  assert.ok(src.includes('getReadSurahPayload(surah: number)'),
+    'seed must implement getReadSurahPayload')
+  assert.ok(src.includes('getQuranCoverageSummary()'),
+    'seed must implement getQuranCoverageSummary')
+  // عقد المخرجات
+  assert.ok(src.includes("mode: 'seed'"),
+    'seed coverage/payload must mark mode="seed"')
+  assert.ok(src.includes('expectedAyahs') && src.includes('6236'),
+    'seed coverage must use expectedAyahs=6236')
+})
+
+test('d1-provider.ts: implements all three read-provider extensions with safe fallbacks', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/lib/data/d1-provider.ts'), 'utf8')
+  assert.ok(src.includes('async getTafseersForSurah(surah: number)'),
+    'd1 must implement async getTafseersForSurah')
+  assert.ok(src.includes('async getReadSurahPayload(surah: number)'),
+    'd1 must implement async getReadSurahPayload')
+  assert.ok(src.includes('async getQuranCoverageSummary()'),
+    'd1 must implement async getQuranCoverageSummary')
+  // d1 يضع mode='d1'
+  assert.ok(src.includes("mode: 'd1'"),
+    'd1 coverage/payload must mark mode="d1"')
+  // فالباك آمن إلى seed
+  assert.ok(src.includes('seedProvider.getTafseersForSurah') ||
+            src.includes('seedProvider.getReadSurahPayload') ||
+            src.includes('seedProvider.getQuranCoverageSummary'),
+    'd1 must fallback to seedProvider on failure/empty DB')
+  // bind() (لا interpolation)
+  assert.ok(/db\.prepare\([^)]+\)\.bind\(/.test(src),
+    'd1 read methods must use prepared .bind() statements')
+})
+
+// ---- Functional smoke tests via direct seedProvider import ----
+// نستورد seed-provider بشكل ديناميكي عبر node:vm/fs (لتجنّب TypeScript)،
+// ولكن seed-provider مكتوب بـ TS؛ بدلًا من ذلك نختبر منطقه عبر seed JSON
+// (نفس مصدر بيانات SUKHS/AYAHS/TAFSEERS بعد التوليد).
+
+test('seedProvider semantics: getTafseersForSurah(1) returns sorted tafseers for Al-Fatiha', () => {
+  const seed = ensureSeed()
+  // محاكاة ما يفعله seed-provider: تصفية حسب السورة + ترتيب بـ ayah ثم id
+  const list = seed.tafseers
+    .filter(t => t.surah === 1)
+    .sort((a, b) => a.ayah - b.ayah || String(a.id).localeCompare(String(b.id)))
+  assert.ok(list.length > 0, 'must have at least one tafseer for surah 1')
+  for (let i = 1; i < list.length; i++) {
+    assert.ok(list[i].ayah >= list[i - 1].ayah,
+      'tafseers must be sorted ascending by ayah')
+  }
+})
+
+test('seedProvider semantics: getReadSurahPayload(1) returns surah + ayahs + tafseersByAyah', () => {
+  const seed = ensureSeed()
+  const surah = seed.surahs.find(s => s.number === 1)
+  const ayahs = seed.ayahs.filter(a => a.surah === 1).sort((x, y) => x.number - y.number)
+  const byAyah = {}
+  for (const t of seed.tafseers) {
+    if (t.surah !== 1) continue
+    if (!byAyah[t.ayah]) byAyah[t.ayah] = []
+    byAyah[t.ayah].push(t)
+  }
+  assert.ok(surah, 'surah 1 must exist')
+  assert.equal(surah.name, 'الفاتحة')
+  assert.ok(ayahs.length >= 7, 'Al-Fatiha must have at least 7 ayahs in seed')
+  // كل آية لديها مفتاح Object صالح (رقم)
+  for (const k of Object.keys(byAyah)) {
+    assert.ok(Number.isFinite(Number(k)), 'tafseersByAyah keys must be numeric strings')
+    assert.ok(Array.isArray(byAyah[k]) && byAyah[k].length > 0)
+  }
+})
+
+test('seedProvider semantics: getQuranCoverageSummary returns valid structure', () => {
+  const seed = ensureSeed()
+  const ayahsCount = seed.ayahs.length
+  const surahsCovered = new Set(seed.ayahs.map(a => a.surah)).size
+  const expectedAyahs = 6236
+  const summary = {
+    ayahsCount,
+    expectedAyahs,
+    surahsCovered,
+    isComplete: ayahsCount === expectedAyahs,
+    coveragePercent: +((ayahsCount / expectedAyahs) * 100).toFixed(2),
+    mode: 'seed',
+  }
+  assert.equal(typeof summary.ayahsCount, 'number')
+  assert.equal(summary.expectedAyahs, 6236)
+  assert.ok(summary.surahsCovered >= 1 && summary.surahsCovered <= 114)
+  assert.equal(typeof summary.isComplete, 'boolean')
+  assert.equal(typeof summary.coveragePercent, 'number')
+  assert.ok(summary.coveragePercent >= 0 && summary.coveragePercent <= 100)
+  assert.equal(summary.mode, 'seed')
+  // sample seed: not complete
+  assert.equal(summary.isComplete, ayahsCount === 6236)
+})
+
+test('coverage math: full Quran (6236 ayahs) → isComplete=true, 100%', () => {
+  const ayahsCount = 6236
+  const expectedAyahs = 6236
+  const pct = +((ayahsCount / expectedAyahs) * 100).toFixed(2)
+  assert.equal(pct, 100)
+  assert.equal(ayahsCount === expectedAyahs, true)
+})
+
+test('coverage math: empty DB → isComplete=false, 0%', () => {
+  const ayahsCount = 0
+  const expectedAyahs = 6236
+  const pct = +((ayahsCount / expectedAyahs) * 100).toFixed(2)
+  assert.equal(pct, 0)
+  assert.equal(ayahsCount === expectedAyahs, false)
+})

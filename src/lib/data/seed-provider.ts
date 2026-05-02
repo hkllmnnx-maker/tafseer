@@ -22,6 +22,7 @@ import {
 import type {
   DataProvider, BasicStats, DetailedStatsLike,
   Surah, Ayah, TafseerBook, Author, Category, TafseerEntry,
+  QuranCoverageSummary, ReadSurahPayload,
 } from './types'
 
 export const seedProvider: DataProvider = {
@@ -58,6 +59,40 @@ export const seedProvider: DataProvider = {
   // ---- Tafseers ----
   getTafseersByAyah(surah: number, ayah: number): TafseerEntry[] {
     return _getTafseersByAyah(surah, ayah)
+  },
+
+  getTafseersForSurah(surah: number): TafseerEntry[] {
+    return TAFSEERS
+      .filter(t => t.surah === surah)
+      .sort((a, b) => a.ayah - b.ayah || String(a.id).localeCompare(String(b.id)))
+  },
+
+  getReadSurahPayload(surah: number): ReadSurahPayload {
+    const surahData = _getSurahByNumber(surah)
+    const ayahs = AYAHS
+      .filter(a => a.surah === surah)
+      .sort((a, b) => a.number - b.number)
+    const tafseersByAyah: Record<number, TafseerEntry[]> = {}
+    for (const t of TAFSEERS) {
+      if (t.surah !== surah) continue
+      if (!tafseersByAyah[t.ayah]) tafseersByAyah[t.ayah] = []
+      tafseersByAyah[t.ayah].push(t)
+    }
+    return { surah: surahData, ayahs, tafseersByAyah, mode: 'seed' }
+  },
+
+  getQuranCoverageSummary(): QuranCoverageSummary {
+    const ayahsCount = AYAHS.length
+    const surahsCovered = new Set(AYAHS.map(a => a.surah)).size
+    const expectedAyahs = 6236 as const
+    return {
+      ayahsCount,
+      expectedAyahs,
+      surahsCovered,
+      isComplete: ayahsCount === expectedAyahs,
+      coveragePercent: +((ayahsCount / expectedAyahs) * 100).toFixed(2),
+      mode: 'seed',
+    }
   },
 
   // ---- Books ----
