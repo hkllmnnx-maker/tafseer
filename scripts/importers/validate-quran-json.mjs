@@ -118,14 +118,27 @@ const topSourceUrl = payload?.sourceUrl || null
 function isHttpsUrl(u) {
   return typeof u === 'string' && /^https:\/\//i.test(u.trim())
 }
-// fast strict-integer check (rejects "3.0", 3.5, NaN, "3 ")
+// fast strict-integer check (rejects "3.0", 3.5, NaN, Infinity, "3 ", undefined, null)
 function isStrictPositiveInteger(v) {
-  if (typeof v === 'number') return Number.isInteger(v) && v > 0
+  if (v == null) return false
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return false       // rejects NaN, Infinity, -Infinity
+    return Number.isInteger(v) && v > 0
+  }
   if (typeof v === 'string') {
     if (!/^\d+$/.test(v.trim())) return false
     const n = Number(v)
     return Number.isInteger(n) && n > 0
   }
+  return false
+}
+
+// تأكيد أن النص لا يحتوي قيمًا تالفة (undefined / NaN / null حرفية)
+function hasCorruptedTokens(text) {
+  if (typeof text !== 'string') return true
+  // \bundefined\b — كلمة مستقلّة (يستثني محتوى عربيّ مشروع)
+  if (/\bundefined\b/i.test(text)) return true
+  if (/\bNaN\b/.test(text)) return true
   return false
 }
 
@@ -165,13 +178,19 @@ for (let i = 0; i < ayahs.length; i++) {
     errors.push(`${idx} surah=${surah} لا تحتوي على آية ${ayah} (max=${max})`)
     continue
   }
-  // text
-  if (typeof a.text !== 'string' || !a.text.trim()) {
-    errors.push(`${idx} text فارغ في ${surah}:${ayah}`); continue
+  // text — يجب أن يكون string غير فارغ وغير undefined/NaN
+  if (a.text === undefined) {
+    errors.push(`${idx} ${surah}:${ayah} text == undefined — حقل مفقود`); continue
   }
-  // text must NOT contain literal "undefined" / "null" tokens (often from broken templating)
-  if (/\bundefined\b/i.test(a.text)) {
-    errors.push(`${idx} ${surah}:${ayah} text يحتوي كلمة "undefined" — مؤشر بيانات تالفة`)
+  if (typeof a.text === 'number' && !Number.isFinite(a.text)) {
+    errors.push(`${idx} ${surah}:${ayah} text == NaN/Infinity — قيمة عددية تالفة`); continue
+  }
+  if (typeof a.text !== 'string' || !a.text.trim()) {
+    errors.push(`${idx} text فارغ أو ليس نصًا في ${surah}:${ayah}`); continue
+  }
+  // text must NOT contain literal "undefined" / "NaN" tokens (often from broken templating)
+  if (hasCorruptedTokens(a.text)) {
+    errors.push(`${idx} ${surah}:${ayah} text يحتوي كلمة "undefined" أو "NaN" — مؤشر بيانات تالفة`)
     continue
   }
   if (/\bnull\b/.test(a.text)) {
@@ -204,12 +223,16 @@ for (let i = 0; i < ayahs.length; i++) {
     errors.push(`${idx} ${surah}:${ayah} sourceUrl يجب أن يبدأ بـ https:// — وُجد: ${a.sourceUrl}`)
     continue
   }
-  // source (في strict mode إلزامي إن لم يكن هناك source علوي)
+  // source (في strict mode إلزامي إن لم يكن هناك source علوي + يجب أن يكون HTTPS)
   if (flagStrict) {
     const src = a.source || topSource
     const url = a.sourceUrl || topSourceUrl
     if (!src) errors.push(`${idx} source مفقود في strict mode (${surah}:${ayah})`)
-    if (!url) errors.push(`${idx} sourceUrl مفقود في strict mode (${surah}:${ayah})`)
+    if (!url) {
+      errors.push(`${idx} sourceUrl مفقود في strict mode (${surah}:${ayah})`)
+    } else if (!isHttpsUrl(url)) {
+      errors.push(`${idx} ${surah}:${ayah} sourceUrl يجب أن يبدأ بـ https:// في strict mode — وُجد: ${url}`)
+    }
   }
   // duplicate
   const key = `${surah}:${ayah}`

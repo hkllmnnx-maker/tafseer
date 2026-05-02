@@ -48,6 +48,31 @@ export const ScientificDisclaimer = () => (
   </div>
 )
 
+/**
+ * شارة وضع البيانات (DataMode):
+ * - `seed` → بيانات مضمَّنة (نموذجية، تُحمَّل من src/data/*).
+ * - `d1`   → قاعدة Cloudflare D1 الفعلية (نشطة).
+ * تُستعمل في الصفحات والواجهة لإعلام المستخدم بمصدر البيانات الحالي.
+ */
+export const DataModeBadge = ({ mode }: { mode?: 'seed' | 'd1' }) => {
+  const isD1 = mode === 'd1'
+  const label = isD1 ? 'D1 (قاعدة بيانات حيّة)' : 'Seed (بيانات مضمَّنة)'
+  const cssClass = isD1 ? 'badge-source-original' : 'badge-source-summary'
+  const title = isD1
+    ? 'البيانات تُقرأ من Cloudflare D1.'
+    : 'البيانات تُقرأ من ملفات seed المضمَّنة. لتفعيل D1، راجع docs/d1-setup.md'
+  return (
+    <span class={`badge tafseer-badge ${cssClass}`} title={title} data-mode={mode || 'seed'}>
+      <IconShield size={11} /> {label}
+      {!isD1 ? (
+        <a href="/methodology#d1" class="text-accent" style="margin-inline-start:.35rem;font-size:.7rem">
+          تفعيل D1 ↗
+        </a>
+      ) : null}
+    </span>
+  )
+}
+
 /** Compact source citation block (book / volume / page / link). */
 export const SourceCitation = ({
   bookTitle, sourceName, edition, volume, page, sourceUrl,
