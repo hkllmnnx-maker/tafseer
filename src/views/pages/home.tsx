@@ -9,12 +9,13 @@ import { SURAHS } from '../../data/surahs'
 import { BOOKS } from '../../data/books'
 import { AUTHORS } from '../../data/authors'
 import { CATEGORIES } from '../../data/categories'
-import { getStats } from '../../lib/search'
+import { getStats, getDetailedStats } from '../../lib/search'
 import { getOverallCoverage } from '../../lib/coverage'
 
 export const HomePage = () => {
   const stats = getStats()
   const coverage = getOverallCoverage()
+  const detailed = getDetailedStats()
   const featuredBooks = BOOKS.filter(b => b.featured).slice(0, 6)
   const popularAyahs = [
     { surah: 1, ayah: 1, label: 'الفاتحة - البسملة' },
@@ -149,7 +150,20 @@ export const HomePage = () => {
               <div class="data-status-label">إجمالي التفاسير المفهرسة</div>
               <div class="data-status-value">{coverage.totalTafseerEntries.toLocaleString('ar-EG')}</div>
               <div class="text-sm text-tertiary mt-2">
-                غالبها صياغات مختصرة بأسلوب الفريق العلمي. التحقق العلمي قيد التنفيذ.
+                موزّعة على {detailed.totals.books} كتاب و {detailed.totals.authors} مؤلف.
+              </div>
+            </div>
+            <div class="card data-status-card">
+              <div class="data-status-label">نصوص أصلية / ملخّصات / عيّنات</div>
+              <div class="data-status-value" style="font-size:1.25rem">
+                {detailed.scientific.originalTexts.toLocaleString('ar-EG')}
+                <span class="text-tertiary" style="font-size:.75rem"> / </span>
+                {detailed.scientific.summaries.toLocaleString('ar-EG')}
+                <span class="text-tertiary" style="font-size:.75rem"> / </span>
+                {detailed.scientific.samples.toLocaleString('ar-EG')}
+              </div>
+              <div class="text-sm text-tertiary mt-2">
+                نسعى لزيادة النصوص الأصلية الموثّقة تدريجيًا.
               </div>
             </div>
           </div>

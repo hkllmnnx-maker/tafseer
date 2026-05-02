@@ -42,6 +42,12 @@ export const DashboardPage = () => {
           <DashStat icon={<IconBookOpen />} label="سورة" value={s.totals.surahs} />
           <DashStat icon={<IconQuote />} label="نص تفسير" value={s.totals.tafseers} />
           <DashStat icon={<IconLayers />} label="آية مغطّاة (في العينة)" value={`${s.ayahsCoveredCount} / ${s.totals.ayahs}`} sub={`نسبة العينة: ${(s.ayahsCoverageRatio * 100).toFixed(1)}%`} />
+          <DashStat
+            icon={<IconQuote />}
+            label="آيات بتفسير / بدون تفسير"
+            value={`${s.scientific.quranAyahsCovered.toLocaleString('ar')} / ${(s.scientific.quranAyahsTotal - s.scientific.quranAyahsCovered).toLocaleString('ar')}`}
+            sub="مُغطّاة بتفسير واحد فأكثر / بانتظار التغطية"
+          />
           <DashStat icon={<IconCalendar />} label="متوسط طول التفسير" value={`${s.totals.avgTafseerLength} حرف`} sub={`الإجمالي: ${s.totals.totalTafseerChars.toLocaleString('ar')} حرف`} />
         </section>
 
