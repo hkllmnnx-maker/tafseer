@@ -43,9 +43,13 @@ const app = new Hono()
 // CSP أضيق + Permissions-Policy + COOP/CORP + HSTS + nosniff + DENY frames.
 //
 // ملاحظة عن 'unsafe-inline':
-//   - styleSrc: مستخدم لأن نظام التصميم يحقن متغيّرات CSS مضمَّنة (RTL/داكن).
-//   - scriptSrc: مستخدم لأن سكربتات صغيرة inline في القوالب (مثل التهيئة الأوّلية لوضع الشاشة، حالة الأشرطة)
-//     قد لا تستحق تكلفة nonce حاليًا. خطة الإزالة موثّقة في docs/security.md (المرحلة الأولى من الـ CSP المتقدّم).
+//   - styleSrc: ما زال مستخدمًا لأن JSX يحقن style="..." في عدة بطاقات (شارات، فلاتر).
+//     خطة الإزالة موثّقة في docs/security.md.
+//   - scriptSrc: أُزيلت 'unsafe-inline' وحلّ محلّها hash مخصّص (SHA-256) لسكربت
+//     تهيئة الثيم في src/renderer.tsx. أيّ تعديل على نصّ ذلك السكربت يستدعي
+//     إعادة حساب الـ hash (انظر docs/security.md → "كيفية تحديث CSP hash").
+//     سكربت JSON-LD (type="application/ld+json") هو بيانات وليس قابلًا للتنفيذ
+//     ولا يخضع لقيود scriptSrc في المتصفّحات الحديثة.
 app.use(
   '*',
   secureHeaders({
@@ -56,7 +60,12 @@ app.use(
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: [
+        "'self'",
+        // hash لسكربت inline يهيّئ الثيم قبل أوّل رسم لمنع وميض الوضع الداكن.
+        // إذا غُيِّر محتوى ذلك السكربت يجب إعادة حساب الـ hash.
+        "'sha256-XDgFU4l0pZIkpiMebd0KPkXydQsyFJhP/U4A/laXaxU='",
+      ],
       scriptSrcAttr: ["'none'"],
       connectSrc: ["'self'"],
       frameAncestors: ["'none'"],
