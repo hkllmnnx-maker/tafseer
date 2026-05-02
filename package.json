@@ -12,6 +12,8 @@
     "verify:data": "node scripts/verify-data.mjs",
     "validate:import": "node scripts/importers/validate-import.mjs",
     "validate:samples": "node scripts/importers/validate-import.mjs fixtures/import-samples/valid-sample.json --dry-run",
+    "validate:quran": "node scripts/importers/validate-quran-json.mjs",
+    "validate:quran-sample": "node scripts/importers/validate-quran-json.mjs fixtures/import-samples/quran-valid-sample.json --dry-run",
     "export:seed-sql": "node scripts/importers/seed-to-d1.mjs",
     "export:seed-check": "node scripts/importers/seed-to-d1.mjs --check",
     "test": "node --test tests/",
