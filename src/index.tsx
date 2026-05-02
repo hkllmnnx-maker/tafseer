@@ -23,6 +23,7 @@ import {
   search, suggest, getStats, getDetailedStats, sanitizeFilters,
   MAX_QUERY_LENGTH, type SearchFilters,
 } from './lib/search'
+import { getDataProvider } from './lib/data'
 import { SURAHS, getSurahByNumber } from './data/surahs'
 import { BOOKS } from './data/books'
 import { AUTHORS } from './data/authors'
@@ -372,8 +373,18 @@ app.get('/dashboard', c => c.render(
 ))
 
 // ============== JSON API ==============
-app.get('/api/stats', c => c.json({ ok: true, data: getStats() }))
-app.get('/api/stats/detailed', c => c.json({ ok: true, data: getDetailedStats() }))
+// نستعمل طبقة DataProvider (seed أو D1) لجلب الإحصاءات.
+// عند عدم تفعيل D1 binding يبقى السلوك متطابقًا (seed mode).
+app.get('/api/stats', async c => {
+  const data = getDataProvider(c.env as any)
+  const stats = await data.getStatsBasic()
+  return c.json({ ok: true, data: stats, mode: data.name })
+})
+app.get('/api/stats/detailed', async c => {
+  const data = getDataProvider(c.env as any)
+  const stats = await data.getStatsDetailed()
+  return c.json({ ok: true, data: stats, mode: data.name })
+})
 
 // ============== JSON Export Endpoints ==============
 function jsonExport(c: any, filename: string, payload: any) {
@@ -398,30 +409,46 @@ app.get('/api/export/surahs', c => jsonExport(c, 'tafseer-surahs.json', SURAHS))
 app.get('/api/export/ayahs', c => jsonExport(c, 'tafseer-ayahs.json', AYAHS))
 app.get('/api/export/tafseers', c => jsonExport(c, 'tafseer-tafseers.json', TAFSEERS))
 app.get('/api/export/categories', c => jsonExport(c, 'tafseer-categories.json', CATEGORIES))
-app.get('/api/surahs', c => c.json({ ok: true, data: SURAHS }))
-app.get('/api/surahs/:n', c => {
+app.get('/api/surahs', async c => {
+  const data = getDataProvider(c.env as any)
+  const list = await data.listSurahs()
+  return c.json({ ok: true, data: list, mode: data.name })
+})
+app.get('/api/surahs/:n', async c => {
   const n = parseIntSafe(c.req.param('n')) || 0
-  const s = getSurahByNumber(n)
+  const data = getDataProvider(c.env as any)
+  const s = await data.getSurahByNumber(n)
   if (!s) return c.json({ ok: false, error: 'not_found' }, 404)
-  return c.json({ ok: true, data: s })
+  return c.json({ ok: true, data: s, mode: data.name })
 })
-app.get('/api/books', c => c.json({ ok: true, data: BOOKS }))
-app.get('/api/books/:id', c => {
-  const b = BOOKS.find(x => x.id === c.req.param('id'))
+app.get('/api/books', async c => {
+  const data = getDataProvider(c.env as any)
+  const list = await data.listBooks()
+  return c.json({ ok: true, data: list, mode: data.name })
+})
+app.get('/api/books/:id', async c => {
+  const data = getDataProvider(c.env as any)
+  const b = await data.getBookById(c.req.param('id'))
   if (!b) return c.json({ ok: false, error: 'not_found' }, 404)
-  return c.json({ ok: true, data: b })
+  return c.json({ ok: true, data: b, mode: data.name })
 })
-app.get('/api/authors', c => c.json({ ok: true, data: AUTHORS }))
-app.get('/api/authors/:id', c => {
-  const a = AUTHORS.find(x => x.id === c.req.param('id'))
+app.get('/api/authors', async c => {
+  const data = getDataProvider(c.env as any)
+  const list = await data.listAuthors()
+  return c.json({ ok: true, data: list, mode: data.name })
+})
+app.get('/api/authors/:id', async c => {
+  const data = getDataProvider(c.env as any)
+  const a = await data.getAuthorById(c.req.param('id'))
   if (!a) return c.json({ ok: false, error: 'not_found' }, 404)
-  return c.json({ ok: true, data: a })
+  return c.json({ ok: true, data: a, mode: data.name })
 })
 app.get('/api/categories', c => c.json({ ok: true, data: CATEGORIES }))
-app.get('/api/ayah/:surah/:ayah', c => {
+app.get('/api/ayah/:surah/:ayah', async c => {
   const surah = parseIntSafe(c.req.param('surah')) || 0
   const ayah = parseIntSafe(c.req.param('ayah')) || 0
-  const surahData = getSurahByNumber(surah)
+  const data = getDataProvider(c.env as any)
+  const surahData = await data.getSurahByNumber(surah)
 
   // 1) السورة غير موجودة في القرآن أصلاً
   if (!surahData) {
@@ -445,8 +472,8 @@ app.get('/api/ayah/:surah/:ayah', c => {
   }
 
   // 3) الآية صحيحة قرآنيًا لكن نصها غير متوفر في العينة الحالية
-  const a = getAyah(surah, ayah)
-  const tafseers = getTafseersByAyah(surah, ayah)
+  const a = await data.getAyah(surah, ayah)
+  const tafseers = await data.getTafseersByAyah(surah, ayah)
   if (!a) {
     const cov = getSurahCoverage(surah)
     return c.json({

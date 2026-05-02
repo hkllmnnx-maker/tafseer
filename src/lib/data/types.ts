@@ -1,5 +1,5 @@
 // =============================================================================
-// Data Access Layer — Types
+// Data Access Layer — Types (Unified DataProvider contract)
 // =============================================================================
 // هذا الملف يعرّف العقد (interface) الذي يجب أن يلتزم به أي مزوّد بيانات
 // (seed أو D1). الهدف أن يصبح التبديل بين البيانات المضمَّنة (seed) وقاعدة
@@ -15,11 +15,13 @@ import type { TafseerBook } from '../../data/books'
 import type { Category } from '../../data/categories'
 import type { TafseerEntry } from '../../data/tafseers'
 import type { SourceType, VerificationStatus } from '../scientific'
+import type { SearchFilters, SearchResults, Suggestion } from '../search'
 
 // ====== Re-export الأنواع لسهولة الاستيراد من الطبقة العليا ======
 export type {
   Surah, Ayah, Author, TafseerBook, Category, TafseerEntry,
   SourceType, VerificationStatus,
+  SearchFilters, SearchResults, Suggestion,
 }
 
 /** إحصاءات إجمالية مختصرة (موحَّدة بين seed و D1). */
@@ -29,21 +31,71 @@ export interface BasicStats {
   surahsCount: number
   ayahsCount: number
   tafseersCount: number
+  /** وضع المزوّد الحالي (seed أو d1) — يُستعمل في الواجهة للتمييز. */
+  mode?: 'seed' | 'd1'
+}
+
+/** إحصاءات تفصيلية مرنة (تستفيد منها لوحة المعلومات). */
+export interface DetailedStatsLike {
+  totals: {
+    books: number
+    authors: number
+    surahs: number
+    ayahs: number
+    tafseers: number
+    avgTafseerLength: number
+    totalTafseerChars: number
+  }
+  perBook: Array<{
+    id: string
+    title: string
+    authorName: string
+    schools: string[]
+    tafseersCount: number
+    avgLength: number
+  }>
+  perAuthor: Array<{
+    id: string
+    name: string
+    century: number
+    deathYear: number
+    booksCount: number
+    tafseersCount: number
+  }>
+  bySchool: Array<{ school: string; booksCount: number; tafseersCount: number }>
+  byCentury: Array<{ century: number; authorsCount: number; tafseersCount: number }>
+  topSurahs: Array<{ surah: number; surahName: string; tafseersCount: number; ayahsCovered: number }>
+  ayahsCoveredCount: number
+  ayahsCoverageRatio: number
+  bySourceType: Array<{ type: SourceType; count: number; percent: number }>
+  byVerification: Array<{ status: VerificationStatus; count: number; percent: number }>
+  scientific: {
+    originalTexts: number
+    summaries: number
+    samples: number
+    pendingReview: number
+    curated: number
+    verified: number
+    partiallyVerified: number
+    unverified: number
+    flagged: number
+    quranAyahsTotal: number
+    quranAyahsCovered: number
+    quranCoveragePercent: number
+  }
 }
 
 /**
- * عقد مزوّد البيانات.
+ * عقد مزوّد البيانات (Unified DataProvider).
  *
- * كل دالة هنا قد تكون متزامنة (seed) أو غير متزامنة (D1)، لذا نُعيد
+ * كل دالة قد تكون متزامنة (seed) أو غير متزامنة (D1)، لذا نُعيد
  * `T | Promise<T>` ونتعامل في الطبقة العليا عبر `await` دائمًا.
  *
- * المسارات المهمّة المُغطّاة في هذه المرحلة الأولى:
- *  - getStatsBasic         — للصفحة الرئيسية / لوحة الإحصاءات
- *  - getAyah / getTafseersByAyah  — لصفحة الآية
- *  - listBooks / getBookById      — لصفحات الكتب
- *  - listAuthors / getAuthorById  — لصفحات المؤلفين
- *
- * لاحقًا سنغطّي: search، detailedStats، coverage، وغيرها.
+ * يُغطّي الواجهات الرئيسية للتطبيق:
+ *  - الإحصاءات (basic + detailed)
+ *  - وصول السور والآيات
+ *  - قراءة الكتب والمؤلفين والموضوعات والتفاسير
+ *  - البحث المتقدّم والاقتراحات (suggest)
  */
 export interface DataProvider {
   /** اسم المزوّد (للتسجيل والتشخيص). */
@@ -51,6 +103,7 @@ export interface DataProvider {
 
   // -------- Stats --------
   getStatsBasic(): BasicStats | Promise<BasicStats>
+  getStatsDetailed(): DetailedStatsLike | Promise<DetailedStatsLike>
 
   // -------- Surahs --------
   listSurahs(): Surah[] | Promise<Surah[]>
@@ -77,6 +130,10 @@ export interface DataProvider {
   // -------- Categories --------
   listCategories(): Category[] | Promise<Category[]>
   getCategoryById(id: string): Category | undefined | Promise<Category | undefined>
+
+  // -------- Search & Suggest --------
+  search(filters: SearchFilters): SearchResults | Promise<SearchResults>
+  suggest(q: string, limit?: number): Suggestion[] | Promise<Suggestion[]>
 }
 
 /**

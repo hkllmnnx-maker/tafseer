@@ -12,9 +12,15 @@ import { AUTHORS } from '../../data/authors'
 import { BOOKS } from '../../data/books'
 import { CATEGORIES } from '../../data/categories'
 import { TAFSEERS, getTafseersByAyah as _getTafseersByAyah } from '../../data/tafseers'
+import {
+  search as _search,
+  suggest as _suggest,
+  getDetailedStats as _getDetailedStats,
+  type SearchFilters, type SearchResults, type Suggestion,
+} from '../search'
 
 import type {
-  DataProvider, BasicStats,
+  DataProvider, BasicStats, DetailedStatsLike,
   Surah, Ayah, TafseerBook, Author, Category, TafseerEntry,
 } from './types'
 
@@ -29,7 +35,12 @@ export const seedProvider: DataProvider = {
       surahsCount: SURAHS.length,
       ayahsCount: AYAHS.length,
       tafseersCount: TAFSEERS.length,
+      mode: 'seed',
     }
+  },
+
+  getStatsDetailed(): DetailedStatsLike {
+    return _getDetailedStats() as DetailedStatsLike
   },
 
   // ---- Surahs ----
@@ -65,5 +76,13 @@ export const seedProvider: DataProvider = {
   listCategories(): Category[] { return CATEGORIES },
   getCategoryById(id: string): Category | undefined {
     return CATEGORIES.find(c => c.id === id)
+  },
+
+  // ---- Search & Suggest ----
+  search(filters: SearchFilters): SearchResults {
+    return _search(filters)
+  },
+  suggest(q: string, limit: number = 10): Suggestion[] {
+    return _suggest(q, limit)
   },
 }
