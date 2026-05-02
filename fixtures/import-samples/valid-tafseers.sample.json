@@ -1,0 +1,58 @@
+[
+  {
+    "id": "imp-saadi-1-1-sample",
+    "bookId": "saadi",
+    "surah": 1,
+    "ayah": 1,
+    "text": "ملخّص: أبتدئ بكل اسم لله تعالى، لأن لفظ (اسم) مفرد مضاف، فيعمّ جميع الأسماء الحسنى. (صياغة الفريق العلمي بالاستفادة من تيسير الكريم الرحمن).",
+    "sourceType": "summary",
+    "verificationStatus": "partially-verified",
+    "sourceName": "تيسير الكريم الرحمن للسعدي",
+    "edition": "مؤسسة الرسالة، 2002",
+    "volume": 1,
+    "page": 39,
+    "sourceUrl": "https://shamela.ws/book/23631/40",
+    "isOriginalText": false,
+    "reviewerNote": "ملخّص بصياغة الفريق، يحتاج مراجعة لغوية نهائية."
+  },
+  {
+    "id": "imp-tabari-1-2-sample",
+    "bookId": "tabari",
+    "surah": 1,
+    "ayah": 2,
+    "text": "نقل من تفسير الطبري: (الحمد) كلمة كل شاكر لله على نعمه، فحمد الله نفسه إخبار منه عن نفسه أنه المستحقّ على عباده الحمد. هذه عيّنة لأغراض الاختبار، يجب التحقّق من نصّ الطبعة الأصلية قبل الاعتماد.",
+    "sourceType": "original-text",
+    "verificationStatus": "verified",
+    "sourceName": "جامع البيان عن تأويل آي القرآن",
+    "edition": "دار هجر، 2001",
+    "volume": 1,
+    "page": 135,
+    "sourceUrl": "https://shamela.ws/book/7038",
+    "isOriginalText": true
+  },
+  {
+    "id": "imp-jalalayn-2-21-sample",
+    "bookId": "jalalayn",
+    "surah": 2,
+    "ayah": 21,
+    "text": "ملخّص للجلالين: أمر بإفراد الله بالعبادة، فهو الذي خلقكم والذين من قبلكم لتتقوا عذابه. صياغة مختصرة بأسلوب الفريق العلمي للتطبيق.",
+    "sourceType": "summary",
+    "verificationStatus": "verified",
+    "sourceName": "تفسير الجلالين",
+    "edition": "دار الحديث، القاهرة",
+    "page": 4,
+    "isOriginalText": false
+  },
+  {
+    "id": "imp-curated-2-255-sample",
+    "bookId": "ibn-kathir",
+    "surah": 2,
+    "ayah": 255,
+    "text": "تجميع موثَّق من ابن كثير والطبري والسعدي حول آية الكرسي: تثبت لله سبحانه الحياة، والقيومية، والعلم المحيط، وكمال السلطان والقدرة. (صياغة الفريق العلمي).",
+    "sourceType": "curated",
+    "verificationStatus": "partially-verified",
+    "sourceName": "تجميع من تفسير ابن كثير + تفسير الطبري + تيسير السعدي",
+    "isOriginalText": false,
+    "reviewerNote": "تجميع تعليمي، يحتاج مراجعة قبل الاعتماد العلمي."
+  }
+]

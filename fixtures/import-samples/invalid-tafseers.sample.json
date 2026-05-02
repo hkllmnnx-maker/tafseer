@@ -1,0 +1,66 @@
+[
+  {
+    "id": "bad-tafseer-1",
+    "bookId": "saadi",
+    "surah": 999,
+    "ayah": 1,
+    "text": "نص قصير",
+    "sourceType": "summary",
+    "verificationStatus": "verified"
+  },
+  {
+    "id": "bad-tafseer-2",
+    "bookId": "tabari",
+    "surah": 1,
+    "ayah": 50,
+    "text": "آية رقم 50 من سورة الفاتحة وهي 7 آيات فقط — يجب أن يُرفض.",
+    "sourceType": "summary",
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "bad-tafseer-3",
+    "bookId": "qurtubi",
+    "surah": 2,
+    "ayah": 2,
+    "text": "إدخال بدون sourceType — يجب أن يُرفض.",
+    "verificationStatus": "verified"
+  },
+  {
+    "id": "bad-tafseer-4",
+    "bookId": "razi",
+    "surah": 2,
+    "ayah": 3,
+    "text": "إدخال بقيم غير معروفة في sourceType و verificationStatus.",
+    "sourceType": "fabricated",
+    "verificationStatus": "unknown-status"
+  },
+  {
+    "id": "bad-tafseer-5",
+    "bookId": "saadi",
+    "surah": 1,
+    "ayah": 1,
+    "text": "نص أصلي مع isOriginalText=false — تعارض منطقي يجب أن يُرفض.",
+    "sourceType": "original-text",
+    "verificationStatus": "verified",
+    "sourceName": "مصدر تجريبي",
+    "isOriginalText": false
+  },
+  {
+    "id": "bad-tafseer-6",
+    "bookId": "ibn-kathir",
+    "surah": 1,
+    "ayah": 1,
+    "text": "verified بدون sourceName — يجب أن يُرفض.",
+    "sourceType": "summary",
+    "verificationStatus": "verified"
+  },
+  {
+    "id": "bad-tafseer-1",
+    "bookId": "saadi",
+    "surah": 1,
+    "ayah": 1,
+    "text": "id مكرّر داخل نفس الملف.",
+    "sourceType": "sample",
+    "verificationStatus": "unverified"
+  }
+]

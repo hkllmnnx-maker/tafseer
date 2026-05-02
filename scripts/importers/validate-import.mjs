@@ -1,27 +1,42 @@
 #!/usr/bin/env node
 // =============================================================================
-// validate-import.mjs — مدقّق ملفات استيراد تفاسير قبل الإدخال إلى قاعدة D1
+// validate-import.mjs — مدقّق ملفات استيراد متعدّد الأنواع لمشروع تفسير
+//
+// يدعم 4 أنواع من ملفات الاستيراد:
+//   1) tafseers — إدخالات تفسير لآيات (الأكثر استعمالًا)
+//   2) ayahs    — نصوص آيات
+//   3) books    — كتب تفسير
+//   4) authors  — مؤلفون
+//
+// نوع الملف يُكتشف تلقائيًا من اسم الملف ومحتواه، أو يُحدَّد صراحةً عبر:
+//   --type=tafseers | ayahs | books | authors
 //
 // الاستعمال:
 //   node scripts/importers/validate-import.mjs <file.json> [--dry-run] [--verbose]
-//   node scripts/importers/validate-import.mjs fixtures/import-samples/*.json
+//   node scripts/importers/validate-import.mjs <file.json> --type=tafseers
+//   node scripts/importers/validate-import.mjs file1.json file2.json ...
 //
 // المخرجات:
 //   - تقرير ملوّن في الطرفية + رمز خروج 0 (نجاح) / 1 (فشل) / 2 (تحذيرات).
-//   - كل صف يجب أن يحتوي: id, bookId, surah, ayah, text, sourceType, verificationStatus.
 // =============================================================================
 
 import { readFileSync, statSync } from 'node:fs'
 import { resolve, basename } from 'node:path'
 import process from 'node:process'
 
+// =============== قوائم بيضاء ===============
 const ALLOWED_SOURCE_TYPES = new Set([
   'original-text', 'summary', 'sample', 'review-needed', 'curated',
 ])
 const ALLOWED_VERIFICATION = new Set([
   'verified', 'partially-verified', 'unverified', 'flagged',
 ])
-// أحجام السور (لتأكيد رقم الآية)؛ نحمّلها من src/data/surahs.ts عبر import ديناميكي مبسّط
+const ALLOWED_SCHOOLS = new Set([
+  'بالمأثور', 'بالرأي', 'فقهي', 'لغوي', 'بلاغي', 'معاصر', 'ميسر', 'موسوعي',
+])
+const ALLOWED_SURAH_TYPES = new Set(['مكية', 'مدنية'])
+
+// أحجام السور (لتأكيد رقم الآية)
 const SURAH_AYAH_COUNTS = {
   1:7,2:286,3:200,4:176,5:120,6:165,7:206,8:75,9:129,10:109,
   11:123,12:111,13:43,14:52,15:99,16:128,17:111,18:110,19:98,20:135,
@@ -42,20 +57,33 @@ const C = {
   green: s => `\x1b[32m${s}\x1b[0m`,
   yellow: s => `\x1b[33m${s}\x1b[0m`,
   blue: s => `\x1b[34m${s}\x1b[0m`,
+  cyan: s => `\x1b[36m${s}\x1b[0m`,
   bold: s => `\x1b[1m${s}\x1b[0m`,
   dim: s => `\x1b[2m${s}\x1b[0m`,
 }
 
 const args = process.argv.slice(2)
-const flags = new Set(args.filter(a => a.startsWith('--')))
+const flags = new Set(args.filter(a => a.startsWith('--') && !a.startsWith('--type=')))
+const typeFlag = args.find(a => a.startsWith('--type='))
+const explicitType = typeFlag ? typeFlag.split('=')[1] : null
 const files = args.filter(a => !a.startsWith('--'))
 const isDryRun = flags.has('--dry-run')
 const isVerbose = flags.has('--verbose')
 
 if (!files.length) {
   console.error(C.red('✖ لم تُحدَّد ملفات للتحقّق.'))
-  console.error('الاستعمال: node scripts/importers/validate-import.mjs <file.json> [--dry-run] [--verbose]')
+  console.error('الاستعمال:')
+  console.error('  node scripts/importers/validate-import.mjs <file.json> [--dry-run] [--verbose]')
+  console.error('  node scripts/importers/validate-import.mjs <file.json> --type=tafseers|ayahs|books|authors')
   process.exit(1)
+}
+
+// خريطة المدقّقات (تُعرَّف هنا قبل أي استدعاء لـ validateFile لتجنّب TDZ).
+const ROW_VALIDATORS = {
+  tafseers: validateTafseerRow,
+  ayahs: validateAyahRow,
+  books: validateBookRow,
+  authors: validateAuthorRow,
 }
 
 let totalErrors = 0
@@ -82,7 +110,8 @@ for (const s of fileSummaries) {
   const status = s.errors.length === 0
     ? (s.warnings.length === 0 ? C.green('✓ ناجح') : C.yellow('⚠ تحذيرات'))
     : C.red('✖ فاشل')
-  console.log(`${status}  ${C.bold(basename(s.file))}  —  مقبول ${s.accepted} | مرفوض ${s.rejected} | تحذيرات ${s.warnings.length}`)
+  const typeTag = C.cyan(`[${s.detectedType || '?'}]`)
+  console.log(`${status} ${typeTag} ${C.bold(basename(s.file))} — مقبول ${s.accepted} | مرفوض ${s.rejected} | تحذيرات ${s.warnings.length}`)
 }
 console.log(C.dim('───────────────────────────────────────────────────────────'))
 console.log(`الإجمالي: مقبول ${C.green(String(totalAccepted))} · مرفوض ${C.red(String(totalRejected))} · تحذيرات ${C.yellow(String(totalWarnings))} · أخطاء ${C.red(String(totalErrors))}`)
@@ -93,11 +122,14 @@ if (totalErrors > 0) process.exit(1)
 if (totalWarnings > 0) process.exit(2)
 process.exit(0)
 
-// ============= منطق التحقق =============
+// =============================================================================
+// منطق التحقق العام
+// =============================================================================
 
 function validateFile(file) {
   const summary = {
     file, errors: [], warnings: [], accepted: 0, rejected: 0,
+    detectedType: null,
   }
   const fp = resolve(process.cwd(), file)
   let stat
@@ -129,78 +161,244 @@ function validateFile(file) {
     return summary
   }
 
+  // اكتشاف النوع
+  const detected = explicitType || detectType(file, data)
+  if (!detected) {
+    summary.errors.push(
+      'تعذّر اكتشاف نوع الملف. استخدم --type=tafseers|ayahs|books|authors أو سمِّ الملف بـ valid-tafseers* أو ضمّن حقولًا مميّزة.'
+    )
+    print(summary)
+    return summary
+  }
+  summary.detectedType = detected
+
+  const validator = ROW_VALIDATORS[detected]
+  if (!validator) {
+    summary.errors.push(`نوع غير مدعوم: ${detected}`)
+    print(summary)
+    return summary
+  }
+
   const seenIds = new Set()
+  const seenKeys = new Set() // لإدخالات بدون id (مثل ayahs)
   data.forEach((row, idx) => {
     const ctx = `[#${idx + 1}]`
-    const errs = validateRow(row, idx, seenIds)
+    const result = validator(row, idx, seenIds, seenKeys)
+    const errs = result.errors || []
+    const warns = result.warnings || []
     if (errs.length) {
       summary.rejected++
       errs.forEach(e => summary.errors.push(`${ctx} ${e}`))
     } else {
       summary.accepted++
-      // تحذيرات اختيارية
-      if (!row.sourceUrl && row.sourceType === 'original-text') {
-        summary.warnings.push(`${ctx} نص أصلي بدون sourceUrl — يُستحسن إضافة رابط للمصدر.`)
-      }
-      if (row.text && row.text.length < 30) {
-        summary.warnings.push(`${ctx} نص قصير جدًا (${row.text.length} حرف).`)
-      }
     }
+    warns.forEach(w => summary.warnings.push(`${ctx} ${w}`))
   })
 
   print(summary)
   return summary
 }
 
-function validateRow(row, idx, seenIds) {
-  const errs = []
+/**
+ * يكتشف نوع الملف من اسمه أولًا ثم من حقوله.
+ */
+function detectType(file, data) {
+  const name = basename(file).toLowerCase()
+  if (name.includes('tafseer') || name.includes('tafsir')) return 'tafseers'
+  if (name.includes('ayah') || name.includes('verse')) return 'ayahs'
+  if (name.includes('book')) return 'books'
+  if (name.includes('author')) return 'authors'
+  // fallback: من الحقول
+  if (!data.length) return null
+  const first = data[0] || {}
+  if ('text' in first && 'sourceType' in first && 'bookId' in first) return 'tafseers'
+  if ('text' in first && 'surah' in first && 'number' in first && !('bookId' in first)) return 'ayahs'
+  if ('title' in first && 'authorId' in first) return 'books'
+  if ('deathYear' in first || 'fullName' in first) return 'authors'
+  return null
+}
+
+// =============================================================================
+// مدقّقات لكل نوع (ROW_VALIDATORS مُعرَّف في الأعلى لتجنّب TDZ)
+// =============================================================================
+
+// ---------- tafseers ----------
+function validateTafseerRow(row, idx, seenIds /*, seenKeys */) {
+  const errors = []
+  const warnings = []
   if (!row || typeof row !== 'object') {
-    errs.push('الإدخال ليس كائنًا.')
-    return errs
+    errors.push('الإدخال ليس كائنًا.')
+    return { errors, warnings }
   }
   if (!row.id || typeof row.id !== 'string') {
-    errs.push('الحقل id إلزامي وسلسلة نصّية.')
+    errors.push('الحقل id إلزامي وسلسلة نصّية.')
   } else if (seenIds.has(row.id)) {
-    errs.push(`id مكرّر داخل نفس الملف: ${row.id}`)
+    errors.push(`id مكرّر داخل نفس الملف: ${row.id}`)
   } else {
     seenIds.add(row.id)
   }
-  if (!row.bookId || typeof row.bookId !== 'string') errs.push('bookId إلزامي.')
+  if (!row.bookId || typeof row.bookId !== 'string') errors.push('bookId إلزامي.')
   if (!Number.isInteger(row.surah) || row.surah < 1 || row.surah > 114) {
-    errs.push(`surah غير صالح (1..114): ${row.surah}`)
+    errors.push(`surah غير صالح (1..114): ${row.surah}`)
   }
   if (!Number.isInteger(row.ayah) || row.ayah < 1) {
-    errs.push(`ayah غير صالح: ${row.ayah}`)
+    errors.push(`ayah غير صالح: ${row.ayah}`)
   }
   if (Number.isInteger(row.surah) && Number.isInteger(row.ayah)) {
     const max = SURAH_AYAH_COUNTS[row.surah]
     if (max && row.ayah > max) {
-      errs.push(`ayah=${row.ayah} يتجاوز عدد آيات السورة ${row.surah} (=${max}).`)
+      errors.push(`ayah=${row.ayah} يتجاوز عدد آيات السورة ${row.surah} (=${max}).`)
     }
   }
   if (!row.text || typeof row.text !== 'string' || row.text.trim().length < 5) {
-    errs.push('text إلزامي ولا يقل عن 5 أحرف.')
+    errors.push('text إلزامي ولا يقل عن 5 أحرف.')
   }
   if (!row.sourceType || !ALLOWED_SOURCE_TYPES.has(row.sourceType)) {
-    errs.push(`sourceType إلزامي من القائمة: ${[...ALLOWED_SOURCE_TYPES].join(' | ')}`)
+    errors.push(`sourceType إلزامي من القائمة: ${[...ALLOWED_SOURCE_TYPES].join(' | ')}`)
   }
   if (!row.verificationStatus || !ALLOWED_VERIFICATION.has(row.verificationStatus)) {
-    errs.push(`verificationStatus إلزامي من القائمة: ${[...ALLOWED_VERIFICATION].join(' | ')}`)
+    errors.push(`verificationStatus إلزامي من القائمة: ${[...ALLOWED_VERIFICATION].join(' | ')}`)
   }
-  // حقول اختيارية لكنها يجب أن تكون من النوع الصحيح إن وُجدت
-  if (row.volume != null && !Number.isInteger(row.volume)) errs.push('volume يجب أن يكون عددًا صحيحًا.')
-  if (row.page != null && !Number.isInteger(row.page)) errs.push('page يجب أن يكون عددًا صحيحًا.')
-  if (row.sourceUrl != null && typeof row.sourceUrl !== 'string') errs.push('sourceUrl يجب أن يكون نصًا.')
+  // قيود تماسك علمي
+  if (row.sourceType === 'original-text' && row.isOriginalText === false) {
+    errors.push('تعارض: sourceType="original-text" مع isOriginalText=false.')
+  }
+  if (row.verificationStatus === 'verified') {
+    if (!row.sourceName) errors.push('verified يستلزم sourceName صريحًا.')
+    if (!row.edition && row.page == null) {
+      warnings.push('verified بدون edition أو page — يُستحسن إضافتهما.')
+    }
+  }
+  // قيود اختيارية على الأنواع
+  if (row.volume != null && !Number.isInteger(row.volume)) errors.push('volume يجب أن يكون عددًا صحيحًا.')
+  if (row.page != null && !Number.isInteger(row.page)) errors.push('page يجب أن يكون عددًا صحيحًا.')
+  if (row.sourceUrl != null && typeof row.sourceUrl !== 'string') errors.push('sourceUrl يجب أن يكون نصًا.')
   if (row.isOriginalText != null && typeof row.isOriginalText !== 'boolean') {
-    errs.push('isOriginalText يجب أن يكون boolean.')
+    errors.push('isOriginalText يجب أن يكون boolean.')
   }
-  return errs
+  // تحذيرات أسلوبية
+  if (errors.length === 0) {
+    if (!row.sourceUrl && row.sourceType === 'original-text') {
+      warnings.push('نص أصلي بدون sourceUrl — يُستحسن إضافة رابط للمصدر.')
+    }
+    if (row.text && row.text.length < 30) {
+      warnings.push(`نص قصير جدًا (${row.text.length} حرف).`)
+    }
+  }
+  return { errors, warnings }
 }
 
+// ---------- ayahs ----------
+function validateAyahRow(row, idx, seenIds, seenKeys) {
+  const errors = []
+  const warnings = []
+  if (!row || typeof row !== 'object') {
+    errors.push('الإدخال ليس كائنًا.')
+    return { errors, warnings }
+  }
+  if (!Number.isInteger(row.surah) || row.surah < 1 || row.surah > 114) {
+    errors.push(`surah غير صالح (1..114): ${row.surah}`)
+  }
+  if (!Number.isInteger(row.number) || row.number < 1) {
+    errors.push(`number غير صالح: ${row.number}`)
+  }
+  if (Number.isInteger(row.surah) && Number.isInteger(row.number)) {
+    const max = SURAH_AYAH_COUNTS[row.surah]
+    if (max && row.number > max) {
+      errors.push(`number=${row.number} يتجاوز عدد آيات السورة ${row.surah} (=${max}).`)
+    }
+    const key = `${row.surah}:${row.number}`
+    if (seenKeys.has(key)) errors.push(`آية مكرّرة داخل نفس الملف: ${key}`)
+    else seenKeys.add(key)
+  }
+  if (!row.text || typeof row.text !== 'string' || row.text.trim().length < 1) {
+    errors.push('text إلزامي وسلسلة نصّية غير فارغة.')
+  }
+  if (row.juz != null && (!Number.isInteger(row.juz) || row.juz < 1 || row.juz > 30)) {
+    errors.push('juz يجب أن يكون 1..30.')
+  }
+  if (row.page != null && (!Number.isInteger(row.page) || row.page < 1 || row.page > 700)) {
+    errors.push('page يجب أن يكون 1..700.')
+  }
+  if (errors.length === 0 && row.text && row.text.length < 3) {
+    warnings.push(`نص الآية قصير جدًا (${row.text.length} حرف) — تأكّد من سلامة البيانات.`)
+  }
+  return { errors, warnings }
+}
+
+// ---------- books ----------
+function validateBookRow(row, idx, seenIds /*, seenKeys */) {
+  const errors = []
+  const warnings = []
+  if (!row || typeof row !== 'object') {
+    errors.push('الإدخال ليس كائنًا.')
+    return { errors, warnings }
+  }
+  if (!row.id || typeof row.id !== 'string') errors.push('id إلزامي.')
+  else if (seenIds.has(row.id)) errors.push(`id مكرّر: ${row.id}`)
+  else seenIds.add(row.id)
+  if (!row.title || typeof row.title !== 'string') errors.push('title إلزامي.')
+  if (!row.authorId || typeof row.authorId !== 'string') errors.push('authorId إلزامي.')
+  if (row.fullTitle != null && typeof row.fullTitle !== 'string') errors.push('fullTitle نص.')
+  if (row.description != null && typeof row.description !== 'string') errors.push('description نص.')
+  if (row.popularity != null && (!Number.isInteger(row.popularity) || row.popularity < 1 || row.popularity > 10)) {
+    errors.push('popularity 1..10.')
+  }
+  if (row.volumes != null && (!Number.isInteger(row.volumes) || row.volumes < 1)) {
+    errors.push('volumes عدد صحيح موجب.')
+  }
+  if (row.featured != null && typeof row.featured !== 'boolean') errors.push('featured boolean.')
+  if (row.schools != null) {
+    if (!Array.isArray(row.schools)) errors.push('schools مصفوفة.')
+    else {
+      for (const s of row.schools) {
+        if (!ALLOWED_SCHOOLS.has(s)) {
+          errors.push(`مدرسة غير معروفة: "${s}". المسموح: ${[...ALLOWED_SCHOOLS].join(' | ')}`)
+        }
+      }
+    }
+  }
+  return { errors, warnings }
+}
+
+// ---------- authors ----------
+function validateAuthorRow(row, idx, seenIds /*, seenKeys */) {
+  const errors = []
+  const warnings = []
+  if (!row || typeof row !== 'object') {
+    errors.push('الإدخال ليس كائنًا.')
+    return { errors, warnings }
+  }
+  if (!row.id || typeof row.id !== 'string') errors.push('id إلزامي.')
+  else if (seenIds.has(row.id)) errors.push(`id مكرّر: ${row.id}`)
+  else seenIds.add(row.id)
+  if (!row.name || typeof row.name !== 'string') errors.push('name إلزامي.')
+  if (row.fullName != null && typeof row.fullName !== 'string') errors.push('fullName نص.')
+  if (!Number.isInteger(row.deathYear) || row.deathYear < 1 || row.deathYear > 1500) {
+    errors.push('deathYear 1..1500 (هجري).')
+  }
+  if (row.birthYear != null && (!Number.isInteger(row.birthYear) || row.birthYear < 0 || row.birthYear > 1500)) {
+    errors.push('birthYear 0..1500 (هجري).')
+  }
+  if (!Number.isInteger(row.century) || row.century < 1 || row.century > 15) {
+    errors.push('century 1..15 (هجري).')
+  }
+  if (row.bio != null && typeof row.bio !== 'string') errors.push('bio نص.')
+  if (row.origin != null && typeof row.origin !== 'string') errors.push('origin نص.')
+  if (Number.isInteger(row.birthYear) && Number.isInteger(row.deathYear) && row.birthYear > row.deathYear) {
+    errors.push('تعارض: birthYear بعد deathYear.')
+  }
+  return { errors, warnings }
+}
+
+// =============================================================================
+// طباعة تقرير ملف واحد
+// =============================================================================
 function print(summary) {
   const head = C.bold(basename(summary.file))
+  const tag = summary.detectedType ? C.cyan(` [${summary.detectedType}]`) : ''
   console.log()
-  console.log(`▸ ${head}`)
+  console.log(`▸ ${head}${tag}`)
   if (summary.errors.length === 0 && summary.warnings.length === 0) {
     console.log(C.green(`  ✓ ${summary.accepted} إدخال صالح`))
     return
@@ -216,7 +414,12 @@ function print(summary) {
   }
   if (summary.warnings.length) {
     console.log(C.yellow(`  ⚠ ${summary.warnings.length} تحذير`))
-    if (isVerbose) summary.warnings.forEach(w => console.log('    - ' + w))
+    if (isVerbose || summary.warnings.length <= 5) {
+      summary.warnings.forEach(w => console.log('    - ' + w))
+    } else {
+      summary.warnings.slice(0, 5).forEach(w => console.log('    - ' + w))
+      console.log(C.dim(`    … (${summary.warnings.length - 5} إضافية، استخدم --verbose)`))
+    }
   }
   console.log(`  ${C.green('مقبول: ' + summary.accepted)} · ${C.red('مرفوض: ' + summary.rejected)}`)
 }

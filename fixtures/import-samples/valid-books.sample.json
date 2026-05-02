@@ -1,0 +1,24 @@
+[
+  {
+    "id": "sample-tabari",
+    "title": "تفسير الطبري (عيّنة)",
+    "fullTitle": "جامع البيان عن تأويل آي القرآن",
+    "authorId": "tabari",
+    "schools": ["بالمأثور", "موسوعي"],
+    "volumes": 24,
+    "description": "هذه عيّنة بيانات لاختبار المستورد، ليست هي البيانات الفعلية للكتاب.",
+    "popularity": 10,
+    "featured": true
+  },
+  {
+    "id": "sample-saadi",
+    "title": "تيسير الكريم الرحمن (عيّنة)",
+    "fullTitle": "تيسير الكريم الرحمن في تفسير كلام المنّان",
+    "authorId": "saadi",
+    "schools": ["ميسر"],
+    "volumes": 1,
+    "description": "عيّنة لاختبار المستورد فقط.",
+    "popularity": 9,
+    "featured": false
+  }
+]
