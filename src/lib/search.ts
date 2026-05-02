@@ -113,6 +113,32 @@ export interface SearchResults {
   totalPages: number
   query: string
   took: number
+  /** وضع المزوّد الذي نفّذ البحث (seed | d1) — اختياري، يُملأ في D1. */
+  mode?: 'seed' | 'd1'
+  /** صدى الفلاتر المطبَّقة فعليًا بعد التطهير (sanitization). */
+  appliedFilters?: {
+    surah?: number
+    ayahFrom?: number
+    ayahTo?: number
+    bookIds?: string[]
+    authorIds?: string[]
+    schools?: string[]
+    sourceTypes?: SourceType[]
+    verificationStatuses?: VerificationStatus[]
+    centuryFrom?: number
+    centuryTo?: number
+    exactMatch?: boolean
+    fuzzy?: boolean
+    searchIn?: 'tafseer' | 'ayah' | 'all'
+    sort?: string
+  }
+  /** قوائم القيم المتاحة في النتائج — تُسهّل بناء واجهة الفلاتر. */
+  facets?: {
+    sourceTypes: Array<{ value: SourceType; count: number }>
+    verificationStatuses: Array<{ value: VerificationStatus; count: number }>
+    bookIds: Array<{ value: string; count: number }>
+    authorIds: Array<{ value: string; count: number }>
+  }
 }
 
 const SNIPPET_LEN = 220
@@ -269,6 +295,28 @@ export function search(filters: SearchFilters): SearchResults {
   const startIdx = (page - 1) * perPage
   const pageItems = items.slice(startIdx, startIdx + perPage)
 
+  // ===== Facets: تجميع القيم المتاحة في النتائج (قبل الـ pagination) =====
+  const stCount = new Map<SourceType, number>()
+  const vsCount = new Map<VerificationStatus, number>()
+  const bkCount = new Map<string, number>()
+  const auCount = new Map<string, number>()
+  for (const it of items) {
+    stCount.set(it.sourceType, (stCount.get(it.sourceType) || 0) + 1)
+    vsCount.set(it.verificationStatus, (vsCount.get(it.verificationStatus) || 0) + 1)
+    bkCount.set(it.bookId, (bkCount.get(it.bookId) || 0) + 1)
+    auCount.set(it.authorId, (auCount.get(it.authorId) || 0) + 1)
+  }
+  const facets = {
+    sourceTypes: Array.from(stCount, ([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count),
+    verificationStatuses: Array.from(vsCount, ([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count),
+    bookIds: Array.from(bkCount, ([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count),
+    authorIds: Array.from(auCount, ([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count),
+  }
+
   return {
     items: pageItems,
     total,
@@ -277,6 +325,24 @@ export function search(filters: SearchFilters): SearchResults {
     totalPages,
     query: q,
     took: Date.now() - start,
+    mode: 'seed',
+    appliedFilters: {
+      surah: filters.surah,
+      ayahFrom: filters.ayahFrom,
+      ayahTo: filters.ayahTo,
+      bookIds: filters.bookIds,
+      authorIds: filters.authorIds,
+      schools: filters.schools,
+      sourceTypes: filters.sourceTypes,
+      verificationStatuses: filters.verificationStatuses,
+      centuryFrom: filters.centuryFrom,
+      centuryTo: filters.centuryTo,
+      exactMatch: filters.exactMatch,
+      fuzzy: filters.fuzzy,
+      searchIn: filters.searchIn,
+      sort: filters.sort,
+    },
+    facets,
   }
 }
 
