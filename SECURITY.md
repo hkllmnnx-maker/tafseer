@@ -35,6 +35,14 @@
   - رفض أرقام السور خارج 1..114، ورفض رقم آية يتجاوز عدد آيات السورة.
   - رفض IDs المكرّرة داخل نفس الملف.
   - الحدّ الأدنى لطول النص = 5 أحرف.
+- مدقّق التفاسير الجديد `scripts/importers/validate-tafsir-json.mjs` (v1.8) يفرض إضافيًا:
+  - `sourceUrl` بصيغة `https://` فقط (مرفوض في `--strict` بدون ذلك).
+  - `license` إلزامي في `--strict` (لتفادي رفع تفاسير محميّة بحقوق ملكية).
+  - مدارس معتمدة فقط: `sunni-classical`, `sunni-modern`, `mufradat`, `lughawi`, ...
+  - مطابقة `sourceType` لـ `isOriginalText`: `original-text` ⇔ `isOriginalText=true`.
+  - رفض النصوص الفارغة وحرفيًا `undefined` / `NaN` / `null`.
+  - اكتشاف التكرار داخل نفس الملف (`id` فريد).
+  - 27 اختبار وحدة تغطّي كل قاعدة في `tests/tafsir-validator.test.mjs`.
 - مدقّق + مستورد القرآن (`scripts/importers/validate-quran-json.mjs` و
   `scripts/importers/import-quran.mjs`) يفرض:
   - رفض النصوص الفارغة، أو التي تحوي حرفيًا `undefined` / `NaN` / `null`.
@@ -185,6 +193,10 @@ CSP يسمح فقط بـ:
 - لا يحتاج هذا السكربت أي Cloudflare secrets ويعمل في CI بأمان.
 - `wrangler.jsonc` يحتفظ بـ D1 binding **معطَّلًا** (placeholder
   `REPLACE_WITH_REAL_D1_ID`) كافتراضي آمن لمنع تسريب database_id حقيقي.
+- `npm run verify:quran-d1` (سكربت `scripts/importers/verify-quran-d1.mjs`) v1.8 يفحص D1
+  بعد الاستيراد: counts (114 سورة، 6236 آية)، checksums لكل سورة، عدم وجود تكرار،
+  ولا قيم `undefined`/`NaN`/فارغة. مع `--dry-run` يعمل بدون اتصال D1 لاختبار
+  السكربت في CI.
 
 ## 11. نسخ احتياطية وانتعاش
 

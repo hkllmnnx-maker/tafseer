@@ -10,28 +10,31 @@
 
 ## 📊 جدول حالة المشروع (Project Status)
 
-> **آخر تحديث**: 2 مايو 2026 (v1.7 — Beta-to-Real-Data Hardening)
+> **آخر تحديث**: 2 مايو 2026 (v1.8 — Tafsir Importer + D1 Verifier + Full Pipeline)
 
 | المحور | الحالة | التفاصيل |
 |--------|--------|----------|
 | **البنية الأساسية** | ✅ مكتملة | Hono + Cloudflare Pages + RTL + JSX |
 | **بيانات seed** | ✅ مكتملة | 114 سورة، 295 آية، 12 كتابًا، 100 تفسير |
 | **بيانات D1** | ✅ جاهزة للتفعيل | المخطّط + المايجريشن + Provider مكتمل، نقطة `--d1` للتشغيل المحلي |
-| **DataProvider موحَّد** | ✅ مكتمل | جميع المسارات الحرجة عبر `getDataProvider(env)`، seed/D1 شفّاف |
+| **DataProvider موحَّد** | ✅ مكتمل | جميع المسارات الحرجة عبر `getDataProvider(env)`، seed/D1 شفّاف، يشمل `getTafseersForSurah` و `getReadSurahPayload` و `getQuranCoverageSummary` |
 | **بحث D1 (مستقل)** | ✅ مكتمل | JOINs + relevance + filters داخل D1، بدون اعتماد seed، FTS5 اختياري |
 | **محرّك البحث** | ✅ seed + D1 | بحث متقدّم + autocomplete + suggest API + mode flag في الردود |
-| **واجهة المستخدم** | ✅ مكتملة | بحث، آية، قراءة متسلسلة، مقارنة، كتب، مؤلفون، فئات، لوحة |
+| **واجهة المستخدم** | ✅ مكتملة | بحث، آية، قراءة متسلسلة، مقارنة، كتب، مؤلفون، فئات، لوحة + بطاقة تغطية القرآن |
 | **PWA** | ✅ v4 | Service Worker + Manifest + Offline + API fallback |
 | **CSP صارم** | ✅ مكتمل | `script-src 'self' 'sha256-...'` بلا `unsafe-inline` |
 | **Permissions-Policy** | ✅ مكتمل | إغلاق camera/mic/geo/payment/usb |
 | **HSTS / COOP / CORP** | ✅ مكتمل | كلها مفعَّلة |
 | **حقن SQL** | ✅ محصَّن | جميع استعلامات D1 عبر `prepare().bind()` فقط، لا concatenation |
-| **اختبارات الوحدات** | ✅ 50/50 ناجحة | `node:test` + Mock D1 + Quran validator + normalize + seed export |
-| **CI (GitHub Actions)** | ✅ يعمل | verify-data + validate-samples + export-seed + tests + build |
-| **مستورد Quran JSON** | ✅ مكتمل | `validate-quran-json.mjs` + 16 اختبارًا + عينات صالحة/خاطئة |
+| **اختبارات الوحدات** | ✅ **139/139 ناجحة** | `node:test` + Mock D1 + Quran/Tafsir validators + normalize + seed export + verify-quran-d1 + DataProvider |
+| **CI (GitHub Actions)** | ✅ يعمل | verify-data + validate-samples + validate-tafsir-sample + verify:quran-d1:dry + export-seed + tests + build |
+| **مستورد Quran JSON** | ✅ مكتمل | `validate-quran-json.mjs` + 16 اختبارًا + عينات صالحة/خاطئة + `import-quran.mjs` |
+| **مستورد Tafsir JSON 🆕** | ✅ مكتمل | `validate-tafsir-json.mjs` + **27 اختبارًا** + عينات صالحة/خاطئة + خطّة استيراد كاملة |
+| **التحقّق من D1 🆕** | ✅ مكتمل | `verify-quran-d1.mjs` + 8 اختبارات (counts/checksums/duplicates) |
+| **API تغطية القرآن 🆕** | ✅ مكتمل | `/api/quran/coverage` + بطاقة بصرية على Dashboard |
 | **FTS5 Migration** | ✅ منفصل (اختياري) | `0002_optional_fts5.sql` لا يُطبَّق تلقائيًا |
 | **التحقّق العلمي** | 🟡 إطار جاهز | `sourceType` + `verificationStatus` على كل إدخال؛ المحتوى لا يزال غالبًا `summary` |
-| **التوثيق** | ✅ شامل | 8 ملفات في `/docs` + README + CONTRIBUTING + CHANGELOG + SECURITY |
+| **التوثيق** | ✅ شامل | 9+ ملفات في `/docs` + README + CONTRIBUTING + CHANGELOG + SECURITY |
 | **النشر** | 🟡 محلّيًا فقط | جاهز للنشر بـ `npm run deploy` بعد ضبط Cloudflare API token |
 
 **الرموز:** ✅ مكتمل · 🟡 جاهز/جزئي · ⏳ مخطّط · ❌ غير مدعوم.
@@ -405,6 +408,22 @@ curl https://<your-pages>/api/ayah/2/255     # آية الكرسي
 
 ## 13) سجل التحديثات
 
+### v1.8 — 2 مايو 2026 (Tafsir Importer + D1 Verifier + Full Pipeline)
+- ✅ **مدقّق التفاسير الجديد** `scripts/importers/validate-tafsir-json.mjs`: قواعد صارمة (HTTPS sourceUrl، license مطلوب في `--strict`، مدارس معتمدة، sourceType مطابق لـ isOriginalText، نطاق سور/آيات صحيح، رفض NaN/undefined/null، رفض النصوص الفارغة، اكتشاف التكرار). يدعم `--strict`، `--full`، `--json`، `--dry-run`.
+- ✅ **27 اختبار وحدة جديد** لمدقّق التفاسير في `tests/tafsir-validator.test.mjs` (تغطية كاملة لكل قاعدة + JSON mode + ملفّات مفقودة/JSON غير صالح).
+- ✅ **عيّنات تفسير**: `fixtures/import-samples/tafsir-valid-sample.json` (يجتاز `--strict`) + `fixtures/import-samples/tafsir-invalid-sample.json` (13 خطأ متوقَّع).
+- ✅ **خطّة استيراد التفاسير**: `docs/tafsir-import-plan.md` تشمل المخطّط، الإجراء، الكتب الأولوية، خطّة المراجعة، حالات الاختبار، الاعتبارات الأمنية.
+- ✅ **سكربت `verify-quran-d1.mjs`**: يفحص counts/checksums/duplicates مقابل D1، 8 اختبارات وحدة.
+- ✅ **توسيع DataProvider**: `getTafseersForSurah` + `getReadSurahPayload` + `getQuranCoverageSummary` (تُلغي N+1 على `/read`) + 9 اختبارات.
+- ✅ **API تغطية القرآن**: `/api/quran/coverage` + بطاقة بصرية على لوحة الإحصاءات.
+- ✅ **CI محسَّن**: خطوتان جديدتان `validate:tafsir-sample` (يجب أن ترفض العيّنة الفاسدة) و `verify:quran-d1:dry`.
+- ✅ **Total tests: 139/139 ✅** (كانت 50 في v1.6، أضيفت 8+9+27 = 44 اختبارًا جديدًا + اختبارات سابقة).
+
+### v1.7 — 2 مايو 2026 (Beta-to-Real-Data Hardening)
+- ✅ تفعيل D1 binding وتحويل `/search` HTML route إلى DataProvider مع mode badge.
+- ✅ `import-quran.mjs` مع migration `0003_ayah_sources.sql` لاستيراد القرآن الكامل (6236 آية).
+- ✅ تحديث CI workflow + README + SECURITY + خطّة استيراد القرآن.
+
 ### v1.5 — 1 مايو 2026
 - ✅ **التحقّق العلمي**: حقول `sourceType`, `verificationStatus`, `sourceName`, `isOriginalText`, `reviewerNote` على كل تفسير + قيم افتراضية محافِظة للإدخالات القديمة.
 - ✅ **API محسَّن**: `/api/ayah/:s/:a` يعيد 404 صحيح (`surah_not_found`, `ayah_number_invalid`, `ayah_text_unavailable`)، و`/api/search` يدعم `sourceTypes[]` + `verificationStatuses[]` عبر `sanitizeFilters`.
@@ -453,6 +472,8 @@ curl https://<your-pages>/api/ayah/2/255     # آية الكرسي
 | [`docs/security.md`](docs/security.md) | نموذج الأمان وCSP |
 | [`docs/testing.md`](docs/testing.md) | دليل الاختبارات (وحدات + CI) |
 | [`docs/final-report.md`](docs/final-report.md) | تقرير المراحل المنجزة |
+| [`docs/quran-import-plan.md`](docs/quran-import-plan.md) | خطّة استيراد القرآن الكامل |
+| [`docs/tafsir-import-plan.md`](docs/tafsir-import-plan.md) | خطّة استيراد التفاسير 🆕 |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | دليل المساهمة |
 | [`CHANGELOG.md`](CHANGELOG.md) | سجل التغييرات |
 | [`SECURITY.md`](SECURITY.md) | سياسة الأمان والإفصاح |
@@ -460,7 +481,9 @@ curl https://<your-pages>/api/ayah/2/255     # آية الكرسي
 ---
 
 ## 15) آخر تحديث
-**2 مايو 2026 (v1.6)** — اكتمال المرحلة الأخيرة: PWA v4 مع API fallback ذكي، CSP صارم (إزالة `'unsafe-inline'` من `script-src` واستبداله بـ SHA-256 hash)، D1 Provider مع تبديل تلقائي، 18 اختبار وحدة ناجح، CI محسّن، توثيق شامل (8 ملفات في `/docs`)، وجدول حالة المشروع.
+**2 مايو 2026 (v1.8)** — اكتمال خطّ أنابيب البيانات الحقيقية الكامل: مدقّق تفاسير صارم مع 27 اختبار وحدة، سكربت verify-quran-d1 مع 8 اختبارات، توسيع DataProvider بـ `getTafseersForSurah`/`getReadSurahPayload`/`getQuranCoverageSummary` لإلغاء N+1، API `/api/quran/coverage` + بطاقة بصرية، خطّة استيراد تفاسير شاملة، CI يفرض رفض العيّنات الفاسدة و dry-run لـ D1 verifier. **Total: 139/139 tests ✅** و build بحجم 338.86 kB.
+
+**2 مايو 2026 (v1.6)** — اكتمال المرحلة السابقة: PWA v4 مع API fallback ذكي، CSP صارم (إزالة `'unsafe-inline'` من `script-src` واستبداله بـ SHA-256 hash)، D1 Provider مع تبديل تلقائي، 18 اختبار وحدة ناجح، CI محسّن، توثيق شامل (8 ملفات في `/docs`)، وجدول حالة المشروع.
 
 ### v1.5 — 1 مايو 2026
 - اكتمال المراحل 11→13: تحسينات الأمان (CSP صارم، Permissions-Policy، HSTS)، SEO/PWA متقدّم (sitemap غني، JSON-LD، canonical URLs، service worker مُحسّن)، والتوثيق المهني الكامل (roadmap, contributing, changelog).

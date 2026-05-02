@@ -13,6 +13,31 @@
 
 ---
 
+## [0.14.0] — 2026-05-02 (v1.8 — Tafsir Importer + D1 Verifier)
+
+### Added
+- **مدقّق التفاسير الجديد** `scripts/importers/validate-tafsir-json.mjs` (~480 سطر) مع أعلام `--strict`/`--full`/`--json`/`--dry-run`.
+- **27 اختبار وحدة** جديد في `tests/tafsir-validator.test.mjs` تغطّي كل قاعدة (HTTPS sourceUrl، license مطلوب، مدارس معتمدة، تطابق sourceType/isOriginalText، نطاق سور/آيات، رفض NaN/undefined/null/فارغ، اكتشاف التكرار، JSON mode، ملفات مفقودة/JSON غير صالح).
+- **عيّنات تفسير**: `fixtures/import-samples/tafsir-valid-sample.json` (يجتاز `--strict`) و `tafsir-invalid-sample.json` (13 خطأ متوقَّع).
+- **خطّة استيراد التفاسير**: `docs/tafsir-import-plan.md` تشمل المخطّط، الإجراء، الكتب الأولوية، خطّة المراجعة، حالات الاختبار، الاعتبارات الأمنية (~13.9 KB).
+- **سكربت `scripts/importers/verify-quran-d1.mjs`**: يفحص D1 بعد الاستيراد (counts/checksums/duplicates) + 8 اختبارات وحدة.
+- **DataProvider methods**: `getTafseersForSurah`، `getReadSurahPayload`، `getQuranCoverageSummary` (تُلغي N+1 على `/read`) + 9 اختبارات.
+- **API**: `/api/quran/coverage` (إحصاءات تغطية القرآن في seed/D1).
+- **UI**: بطاقة تغطية القرآن البصرية على Dashboard.
+- **CI**: خطوتان `validate:tafsir-sample` و `verify:quran-d1:dry`.
+- **npm scripts**: `validate:tafsir`، `validate:tafsir-sample`، `verify:quran-d1:dry`.
+
+### Changed
+- توسيع `tafseer/data-provider.ts` بثلاث methods جديدة + تحسين `/ayah` و `/read` للاعتماد عليها.
+- `README.md`: قسم v1.8 + تحديث جدول الحالة (139/139 tests).
+- `SECURITY.md`: قسم تفاصيل مدقّق التفاسير + تحديث 10.2 لـ verify-quran-d1.
+- `.github/workflows/ci.yml`: خطّ أنابيب أوسع.
+
+### Tests
+- **Total: 139/139 ✅** (ارتفعت من 95/95 في v1.7).
+
+---
+
 ## [0.13.0] — 2026-05-02
 
 ### Added
