@@ -224,10 +224,11 @@ app.get('/books', c => {
 app.get('/books/:id', c => {
   const id = c.req.param('id')
   const book = BOOKS.find(b => b.id === id)
+  if (!book) c.status(404)
   return c.render(
     <BookDetailPage bookId={id} />,
     {
-      title: book ? book.title : 'كتاب',
+      title: book ? book.title : 'كتاب غير موجود',
       description: book ? `معلومات كتاب «${book.title}» وفهرس التفاسير المتوفّرة منه في المنصّة.` : undefined,
       canonical: canonicalUrl(c, `/books/${id}`),
       ogType: 'book',
@@ -247,8 +248,9 @@ app.get('/authors', c => {
 app.get('/authors/:id', c => {
   const id = c.req.param('id')
   const a = AUTHORS.find(x => x.id === id)
+  if (!a) c.status(404)
   return c.render(<AuthorDetailPage authorId={id} />, {
-    title: a ? a.name : 'مؤلف',
+    title: a ? a.name : 'مؤلف غير موجود',
     description: a ? `سيرة موجزة للمؤلّف ${a.name} وكتبه التفسيريّة المتوفّرة.` : undefined,
     canonical: canonicalUrl(c, `/authors/${id}`),
     ogType: 'profile',
@@ -277,8 +279,9 @@ app.get('/categories', c => c.render(<CategoriesPage />, {
 app.get('/categories/:id', c => {
   const id = c.req.param('id')
   const cat = CATEGORIES.find(x => x.id === id)
+  if (!cat) c.status(404)
   return c.render(<CategoryDetailPage id={id} />, {
-    title: cat ? cat.name : 'موضوع',
+    title: cat ? cat.name : 'موضوع غير موجود',
     description: cat ? `الآيات المتعلّقة بموضوع «${cat.name}» وتفاسيرها.` : undefined,
     canonical: canonicalUrl(c, `/categories/${id}`),
   } as any)
@@ -296,10 +299,11 @@ app.get('/surahs', c => {
 app.get('/surahs/:n', c => {
   const n = parseIntSafe(c.req.param('n')) || 0
   const s = getSurahByNumber(n)
+  if (!s) c.status(404)
   return c.render(
     <SurahDetailPage surahNumber={n} />,
     {
-      title: s ? `سورة ${s.name}` : 'سورة',
+      title: s ? `سورة ${s.name}` : 'سورة غير موجودة',
       description: s ? `تفاصيل سورة ${s.name}: عدد الآيات، نوع السورة، ترتيب النزول، والآيات المتوفّرة في العينة.` : undefined,
       canonical: canonicalUrl(c, `/surahs/${n}`),
     } as any,
@@ -613,6 +617,7 @@ app.get('/sitemap.xml', c => {
 
 // 404
 app.notFound(c => {
+  c.status(404)
   return c.render(
     <>
       <Header />
