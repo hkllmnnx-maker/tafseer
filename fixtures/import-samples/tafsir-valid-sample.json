@@ -1,0 +1,108 @@
+{
+  "book": {
+    "id": "ibn-kathir",
+    "title": "تفسير القرآن العظيم",
+    "shortTitle": "تفسير ابن كثير",
+    "schools": ["بالمأثور"],
+    "century": 8,
+    "language": "ar",
+    "popularity": 95,
+    "license": "Public Domain",
+    "sourceUrl": "https://shamela.ws/book/12345",
+    "edition": "تحقيق سامي السلامة - دار طيبة - الطبعة الثانية",
+    "verificationStatus": "verified"
+  },
+  "author": {
+    "id": "ibn-kathir",
+    "name": "أبو الفداء إسماعيل ابن كثير الدمشقي",
+    "deathYear": 774,
+    "birthYear": 701,
+    "schools": ["بالمأثور"],
+    "biography": "محدّث ومفسّر ومؤرخ من علماء الشام في القرن الثامن الهجري.",
+    "sourceUrl": "https://example.org/biographies/ibn-kathir"
+  },
+  "meta": {
+    "schemaVersion": "1.0",
+    "exportedAt": "2026-05-02T12:00:00Z",
+    "exportedBy": "tafseer-project / sample fixture (not a full edition)",
+    "note": "هذه عيّنة صغيرة لأغراض الاختبار فقط — ليست تفسيرًا كاملًا."
+  },
+  "entries": [
+    {
+      "id": "ibn-kathir-001-001",
+      "surah": 1,
+      "ayah": 1,
+      "text": "افتُتح الكتاب العزيز بالبسملة، وفيها استعانة بالله تعالى الذي يستحقّ العبادة وحده، الموصوف بصفات الكمال من الرحمة والعدل.",
+      "sourceType": "original-text",
+      "verificationStatus": "verified",
+      "isOriginalText": true,
+      "sourceName": "تفسير القرآن العظيم - ابن كثير",
+      "edition": "تحقيق سامي السلامة - دار طيبة - الطبعة الثانية",
+      "volume": 1,
+      "page": 117,
+      "sourceUrl": "https://shamela.ws/book/12345/1#p1",
+      "reviewerNote": "روجع بمقابلة ط دار طيبة 1422هـ",
+      "isSample": true
+    },
+    {
+      "id": "ibn-kathir-001-002",
+      "surah": 1,
+      "ayah": 2,
+      "text": "الحمد ثناء على الله بصفات كماله، وعلى نعمه السابغة. (الْعَالَمِينَ) جمع عالَم: كلّ ما سوى الله مما خلق.",
+      "sourceType": "original-text",
+      "verificationStatus": "verified",
+      "isOriginalText": true,
+      "sourceName": "تفسير القرآن العظيم - ابن كثير",
+      "edition": "تحقيق سامي السلامة - دار طيبة - الطبعة الثانية",
+      "volume": 1,
+      "page": 124,
+      "sourceUrl": "https://shamela.ws/book/12345/1#p2",
+      "isSample": true
+    },
+    {
+      "id": "ibn-kathir-002-255",
+      "surah": 2,
+      "ayah": 255,
+      "text": "هذه آية الكرسي، وفيها من الأسماء والصفات ما لا يجتمع في غيرها من آيات القرآن: وحدانية الله، الحياة، القيومية، نفي السنة والنوم، عموم الملك، اختصاص الشفاعة بإذنه، إحاطة العلم، عظمة الكرسي، وكونه العليّ العظيم.",
+      "sourceType": "original-text",
+      "verificationStatus": "verified",
+      "isOriginalText": true,
+      "sourceName": "تفسير القرآن العظيم - ابن كثير",
+      "edition": "تحقيق سامي السلامة - دار طيبة - الطبعة الثانية",
+      "volume": 1,
+      "page": 678,
+      "sourceUrl": "https://shamela.ws/book/12345/1#p678",
+      "reviewerNote": "آية الكرسي - روجعت بدقة",
+      "isSample": true
+    },
+    {
+      "id": "ibn-kathir-112-001",
+      "surah": 112,
+      "ayah": 1,
+      "text": "ملخّص: قل أيها الرسول: هو الله المتفرّد بالألوهيّة والربوبيّة، المنفرد بصفات الكمال.",
+      "sourceType": "summary",
+      "verificationStatus": "partially-verified",
+      "isOriginalText": false,
+      "sourceName": "ملخّص تفسير ابن كثير - فريق المشروع",
+      "edition": "ملخّص داخلي",
+      "sourceUrl": "https://shamela.ws/book/12345/8#p580",
+      "reviewerNote": "ملخّص — ليس نصًّا أصليًا.",
+      "isSample": true
+    },
+    {
+      "id": "ibn-kathir-114-006",
+      "surah": 114,
+      "ayah": 6,
+      "text": "خاتمة السورة وخاتمة المصحف: من الجِنَّة والناس، أي من شياطين الإنس والجن جميعًا، استعاذة جامعة.",
+      "sourceType": "original-text",
+      "verificationStatus": "verified",
+      "isOriginalText": true,
+      "sourceName": "تفسير القرآن العظيم - ابن كثير",
+      "edition": "تحقيق سامي السلامة - دار طيبة - الطبعة الثانية",
+      "volume": 8,
+      "page": 547,
+      "sourceUrl": "https://shamela.ws/book/12345/8#p547",
+      "isSample": true
+    }
+  ]
+}

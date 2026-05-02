@@ -20,6 +20,8 @@
     "import:quran:sample": "node scripts/importers/import-quran.mjs fixtures/import-samples/quran-valid-sample.json --allow-partial --strict",
     "verify:quran-d1": "node scripts/importers/verify-quran-d1.mjs",
     "verify:quran-d1:dry": "node scripts/importers/verify-quran-d1.mjs --dry-run",
+    "validate:tafsir": "node scripts/importers/validate-tafsir-json.mjs",
+    "validate:tafsir-sample": "node scripts/importers/validate-tafsir-json.mjs fixtures/import-samples/tafsir-valid-sample.json --dry-run",
     "test": "node --test tests/",
     "db:migrate:local": "wrangler d1 migrations apply tafseer-production --local",
     "db:migrate:prod": "wrangler d1 migrations apply tafseer-production",
