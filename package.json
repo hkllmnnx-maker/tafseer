@@ -12,6 +12,9 @@
     "verify:data": "node scripts/verify-data.mjs",
     "validate:import": "node scripts/importers/validate-import.mjs",
     "validate:samples": "node scripts/importers/validate-import.mjs fixtures/import-samples/valid-sample.json --dry-run",
+    "export:seed-sql": "node scripts/importers/seed-to-d1.mjs",
+    "export:seed-check": "node scripts/importers/seed-to-d1.mjs --check",
+    "test": "node --test tests/",
     "db:migrate:local": "wrangler d1 migrations apply tafseer-production --local",
     "db:migrate:prod": "wrangler d1 migrations apply tafseer-production"
   },
