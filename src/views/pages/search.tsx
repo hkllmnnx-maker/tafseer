@@ -116,6 +116,17 @@ export const SearchPage = ({
                 ? <>وجدنا <strong>{results.total.toLocaleString('ar-EG')}</strong> نتيجة في <strong>{results.took}</strong> مللي ثانية</>
                 : <>لا توجد نتائج بعد - استخدم الفلاتر للبدء</>
               }
+              {results.mode ? (
+                <span
+                  class={`badge ${results.mode === 'd1' ? 'badge-success' : 'badge-outline'}`}
+                  style="font-size:.7rem;padding:.15rem .5rem;margin-inline-start:.5rem"
+                  title={results.mode === 'd1'
+                    ? 'هذه النتائج جاءت من قاعدة بيانات Cloudflare D1 الإنتاجية'
+                    : 'هذه النتائج جاءت من البيانات التجريبية في الذاكرة (seed)'}
+                >
+                  {results.mode === 'd1' ? 'D1' : 'Seed'}
+                </span>
+              ) : null}
             </span>
           </div>
         </form>

@@ -162,7 +162,7 @@ app.get('/', c => c.render(<HomePage />, {
   canonical: canonicalUrl(c, '/'),
 } as any))
 
-app.get('/search', c => {
+app.get('/search', async c => {
   const filters = sanitizeFilters({
     q: c.req.query('q'),
     surah: c.req.query('surah') as any,
@@ -182,7 +182,10 @@ app.get('/search', c => {
     page: c.req.query('page') as any,
     perPage: 10,
   })
-  const results = search(filters)
+  // نستخدم DataProvider حتى يأتي البحث من D1 إن كان مفعّلًا، وإلا
+  // يقع تلقائيًا على seed. تظهر شارة results.mode على واجهة البحث.
+  const data = getDataProvider(c.env as any)
+  const results = await data.search(filters)
   return c.render(
     <SearchPage filters={filters} results={results} />,
     {

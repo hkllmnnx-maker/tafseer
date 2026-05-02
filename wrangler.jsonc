@@ -3,46 +3,34 @@
   "name": "webapp",
   "compatibility_date": "2026-04-13",
   "pages_build_output_dir": "./dist",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ]
+  "compatibility_flags": ["nodejs_compat"],
 
   // ============================================================
-  // D1 Database binding (DISABLED by default — opt-in)
+  // D1 Database binding (ACTIVE — local-first via wrangler)
   // ============================================================
-  // ⚠️ هذا القسم معلَّق بشكل آمن. لا تُفعّله إلا بعد:
-  //   1) تنفيذ:   npx wrangler login
-  //   2) إنشاء DB: npx wrangler d1 create tafseer-production
-  //                (سيُطبَع database_id حقيقي — انسخه)
-  //   3) لصق database_id الفعلي مكان "REPLACE_WITH_REAL_D1_ID"
-  //   4) تطبيق الترحيلات:  npm run db:migrate:local
-  //                       (وعلى الإنتاج: npm run db:migrate:prod)
+  // مفعَّل افتراضيًا عبر binding "DB". في التطوير المحلي يُنشئ
+  // wrangler ملف SQLite تحت .wrangler/state/v3/d1 ويستخدمه
+  // كل من `wrangler pages dev` و `wrangler d1 execute` ما دامت
+  // نفس الـ database_name مستعملة (لذا لا تستخدم --d1=DB=...
+  // الذي يُنتج hash مختلفًا ويُسبِّب تعارض الملفات).
+  //
+  // للإنتاج: استبدل database_id بقيمة حقيقية من
+  //   npx wrangler d1 create tafseer-production
+  // ثم طبّق الترحيلات: npm run db:migrate:prod
   //
   // المراجع:
   //   - docs/d1-setup.md — خطوات الإعداد الكاملة + تنبيهات الأمان
   //   - docs/database.md — مخطّط البيانات والجداول
   //
-  // عند تفعيل القسم، سيستعمل التطبيق تلقائيًا D1 provider بدلًا من
+  // عند تفعيل القسم، يستعمل التطبيق تلقائيًا D1 provider بدلًا من
   // seed provider، مع fallback آمن إلى seed عند فشل أي استعلام.
-  //
-  // مهم: لا تُلصق database_id الحقيقي في الـ commit. يُفضَّل وضعه فقط
-  // عبر Cloudflare Pages dashboard كمتغيّر/binding للإنتاج، أو إبقاؤه
-  // كـ placeholder هنا للتوثيق.
   // ============================================================
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "tafseer-production",
-  //     "database_id": "REPLACE_WITH_REAL_D1_ID"
-  //   }
-  // ]
-
-  // KV / R2 / AI bindings — غير مستخدمة حاليًا، تُترك معلَّقة كقالب.
-  // "kv_namespaces": [
-  //   { "binding": "KV", "id": "REPLACE_WITH_REAL_KV_ID" }
-  // ],
-  // "r2_buckets": [
-  //   { "binding": "R2", "bucket_name": "tafseer-bucket" }
-  // ],
-  // "ai": { "binding": "AI" }
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tafseer-production",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "db/migrations"
+    }
+  ]
 }
