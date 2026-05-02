@@ -7,7 +7,7 @@ import {
 import { getDetailedStats } from '../../lib/search'
 import { getSourceTypeMeta, getVerificationMeta } from '../../lib/scientific'
 import { SourceTypeBadge, VerificationBadge } from '../components/badges'
-import type { DetailedStatsLike } from '../../lib/data/types'
+import type { DetailedStatsLike, QuranCoverageSummary } from '../../lib/data/types'
 
 /**
  * DashboardPage يقبل stats مُحسبة مسبقًا (من DataProvider — D1 أو seed).
@@ -20,11 +20,22 @@ import type { DetailedStatsLike } from '../../lib/data/types'
 export const DashboardPage = ({
   dataMode = 'seed',
   stats: statsProp,
+  coverage: coverageProp,
 }: {
   dataMode?: 'seed' | 'd1'
   stats?: DetailedStatsLike
+  coverage?: QuranCoverageSummary
 } = {}) => {
   const s = statsProp ?? (getDetailedStats() as unknown as DetailedStatsLike)
+  // Coverage prop comes from DataProvider.getQuranCoverageSummary(); fallback for back-compat.
+  const cov: QuranCoverageSummary = coverageProp ?? {
+    ayahsCount: s.totals.ayahs,
+    expectedAyahs: 6236,
+    surahsCovered: s.topSurahs?.length || 0,
+    isComplete: s.totals.ayahs === 6236,
+    coveragePercent: +((s.totals.ayahs / 6236) * 100).toFixed(2),
+    mode: dataMode,
+  }
   const maxBookCount = Math.max(1, ...s.perBook.map(b => b.tafseersCount))
   const maxSchoolCount = Math.max(1, ...s.bySchool.map(b => b.tafseersCount))
   const maxCenturyCount = Math.max(1, ...s.byCentury.map(b => b.tafseersCount))
@@ -75,6 +86,42 @@ export const DashboardPage = ({
             <a href="/methodology" class="text-accent text-xs" style="margin-inline-start:auto">
               منهجية التوثيق ↗
             </a>
+          </div>
+
+          {/* Quran Coverage Snapshot — from DataProvider.getQuranCoverageSummary() */}
+          <div class="card mt-3" style="padding:1rem 1.25rem;background:var(--surface-2,#fafafa);border-inline-start:3px solid var(--accent,#1a8754)">
+            <div class="flex flex-wrap gap-3" style="align-items:center">
+              <strong style="font-size:.95rem">
+                <IconBookOpen size={14} /> ملخّص تغطية القرآن
+              </strong>
+              <span class={`badge ${cov.isComplete ? 'badge-success' : 'badge-warn'}`}
+                    title={cov.isComplete ? 'القرآن الكامل (6236 آية) مُحمَّل' : 'لم يُحمَّل القرآن الكامل بعد'}>
+                {cov.isComplete ? '✓ مكتمل' : '⚠ غير مكتمل'}
+              </span>
+              <span class="badge" title="عدد الآيات الموجودة فعلًا">
+                {cov.ayahsCount.toLocaleString('ar')} / {cov.expectedAyahs.toLocaleString('ar')} آية
+              </span>
+              <span class="badge" title="عدد السور التي تحوي آية واحدة على الأقل">
+                {cov.surahsCovered} / 114 سورة
+              </span>
+              <span class="badge badge-gold" title="نسبة الاكتمال">
+                {cov.coveragePercent}%
+              </span>
+              <a href="/api/quran/coverage" class="text-accent text-xs"
+                 style="margin-inline-start:auto" target="_blank" rel="noopener">
+                JSON API ↗
+              </a>
+            </div>
+            <div class="coverage-bar mt-2" aria-label={`تغطية القرآن ${cov.coveragePercent}%`}>
+              <span style={`width:${Math.max(2, Math.min(100, cov.coveragePercent))}%`}></span>
+            </div>
+            {!cov.isComplete ? (
+              <p class="text-tertiary text-xs mt-2" style="margin-bottom:0">
+                لاستيراد القرآن الكامل من مصدر موثوق، راجع
+                {' '}<a href="https://github.com/hkllmnnx-maker/tafseer/blob/main/docs/quran-import-plan.md"
+                       class="text-accent" target="_blank" rel="noopener">docs/quran-import-plan.md</a>.
+              </p>
+            ) : null}
           </div>
           {dataMode === 'seed' ? (
             <div class="mt-3 text-sm" style="background:var(--surface-2,#fff8e1);border-inline-start:3px solid var(--gold,#c9a45c);padding:.75rem 1rem;border-radius:var(--radius-sm,6px);line-height:1.7">

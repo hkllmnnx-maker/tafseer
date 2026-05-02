@@ -426,10 +426,19 @@ app.get('/dashboard', async c => {
   // مُحدَّث: نمرّر إحصاءات DataProvider الفعلية (seed أو D1) للصفحة
   // بدل إعادة حسابها من seed داخل الواجهة. الشارة في Dashboard تعرض
   // وضع البيانات الفعلي بناءً على data.name.
+  // كذلك نمرّر ملخّص تغطية القرآن (ayahs/surahs/isComplete/percent) لعرضه
+  // في بطاقة مستقلّة وربط API /api/quran/coverage.
   const data = getDataProvider(c.env as any)
-  const stats = await data.getStatsDetailed()
+  const [stats, coverage] = await Promise.all([
+    data.getStatsDetailed(),
+    Promise.resolve(
+      data.getQuranCoverageSummary
+        ? data.getQuranCoverageSummary()
+        : undefined,
+    ),
+  ])
   return c.render(
-    <DashboardPage dataMode={data.name} stats={stats} />,
+    <DashboardPage dataMode={data.name} stats={stats} coverage={coverage as any} />,
     {
       title: 'لوحة الإحصاءات',
       description: 'نظرة شاملة على محتوى التطبيق: الكتب، المؤلفون، المدارس التفسيرية، توزيع القرون، والسور الأكثر تغطية.',
@@ -450,6 +459,19 @@ app.get('/api/stats/detailed', async c => {
   const data = getDataProvider(c.env as any)
   const stats = await data.getStatsDetailed()
   return c.json({ ok: true, data: stats, mode: data.name })
+})
+
+// ملخّص تغطية القرآن — عدد الآيات/السور، اكتمال، نسبة، ومصدر البيانات.
+// يستخدم DataProvider.getQuranCoverageSummary() (seed أو D1).
+app.get('/api/quran/coverage', async c => {
+  const data = getDataProvider(c.env as any)
+  const summary = data.getQuranCoverageSummary
+    ? await data.getQuranCoverageSummary()
+    : {
+        ayahsCount: 0, expectedAyahs: 6236, surahsCovered: 0,
+        isComplete: false, coveragePercent: 0, mode: data.name,
+      }
+  return c.json({ ok: true, data: summary, mode: data.name })
 })
 
 // ============== JSON Export Endpoints (SEED-only by design) ==============
