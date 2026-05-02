@@ -38,25 +38,65 @@ import {
 
 const app = new Hono()
 
-// Security headers
+// ============== Security headers ==============
+// CSP أضيق + Permissions-Policy + COOP/CORP + HSTS + nosniff + DENY frames.
+//
+// ملاحظة عن 'unsafe-inline':
+//   - styleSrc: مستخدم لأن نظام التصميم يحقن متغيّرات CSS مضمَّنة (RTL/داكن).
+//   - scriptSrc: مستخدم لأن سكربتات صغيرة inline في القوالب (مثل التهيئة الأوّلية لوضع الشاشة، حالة الأشرطة)
+//     قد لا تستحق تكلفة nonce حاليًا. خطة الإزالة موثّقة في docs/security.md (المرحلة الأولى من الـ CSP المتقدّم).
 app.use(
   '*',
   secureHeaders({
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'blob:'],
       scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'none'"],
       connectSrc: ["'self'"],
       frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      manifestSrc: ["'self'"],
+      workerSrc: ["'self'"],
+      upgradeInsecureRequests: [],
     },
     referrerPolicy: 'strict-origin-when-cross-origin',
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+      payment: [],
+      usb: [],
+      accelerometer: [],
+      gyroscope: [],
+      magnetometer: [],
+      midi: [],
+      fullscreen: ['self'],
+    },
+    strictTransportSecurity: 'max-age=63072000; includeSubDomains; preload',
+    xContentTypeOptions: 'nosniff',
+    xFrameOptions: 'DENY',
+    crossOriginOpenerPolicy: 'same-origin',
+    crossOriginResourcePolicy: 'same-origin',
   }),
 )
 
-// CORS for API
-app.use('/api/*', cors({ origin: '*', allowMethods: ['GET'] }))
+// ============== CORS ==============
+// API للقراءة فقط: يبقى عامًا (origin: '*') لأن المحتوى عام (تفاسير، آيات، إحصاءات)،
+// ولا توجد بيانات حساسة للمستخدم تُرجَع. credentials: false ليمنع المتصفّح
+// من إرسال الكوكيز/الترويسات الخاصة. allowMethods مقصور على الآمنة فقط.
+app.use('/api/*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'HEAD', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Accept'],
+  exposeHeaders: ['Cache-Control'],
+  credentials: false,
+  maxAge: 600,
+}))
 
 // ============== Cache headers (performance) ==============
 // 1) الأصول الثابتة: تخزين طويل (سنة، immutable)
@@ -475,9 +515,25 @@ app.notFound(c => {
   )
 })
 
-// Error handler
+// ============== Error handler ==============
+// لا نكشف رسائل الخطأ أو stack traces للمستخدم النهائي.
+// نُسجّل تفاصيل الخطأ في console (ستظهر في Cloudflare logs) ونعيد رسالة عامّة.
+// لمسارات /api/* نعيد JSON موحّدًا بدون تفاصيل.
 app.onError((err, c) => {
-  console.error('App error:', err)
+  // سجلّ داخلي فقط - لن يصل للمستخدم
+  try {
+    console.error('App error:', err && (err as Error).message ? (err as Error).message : 'unknown', {
+      path: c.req.path,
+      method: c.req.method,
+    })
+  } catch { /* تجاهل أخطاء التسجيل */ }
+
+  // لمسارات API: JSON موحّد بدون stack/تفاصيل
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ ok: false, error: 'internal_error', message: 'حدث خطأ غير متوقع.' }, 500)
+  }
+
+  // للصفحات: واجهة ودودة بدون أي تفاصيل تقنية
   return c.render(
     <>
       <Header />
