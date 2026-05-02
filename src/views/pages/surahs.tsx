@@ -1,13 +1,30 @@
 // صفحة قائمة السور
 import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import { IconBookOpen, IconArrowRightCircle, IconHash, IconSearch } from '../icons'
-import { SURAHS, getSurahByNumber } from '../../data/surahs'
+import { SURAHS, type Surah, getSurahByNumber } from '../../data/surahs'
 import { getAyahsBySurah } from '../../data/ayahs'
 import { TAFSEERS } from '../../data/tafseers'
 import { getSurahCoverage, completenessLabel, completenessClass } from '../../lib/coverage'
 
-export const SurahsPage = ({ q = '', type = '' }: { q?: string; type?: string }) => {
-  let surahs = [...SURAHS]
+/**
+ * SurahsPage يقبل قائمة السور كـ prop اختياري (يأتي من DataProvider).
+ * تغطية كل سورة تبقى محسوبة من seed (lib/coverage) لأن coverage يعتمد على
+ * البيانات الكاملة عبر AYAHS و TAFSEERS؛ المرور إلى D1 لاحقًا يتطلّب
+ * خدمة تغطية على مستوى المزوّد. هنا نسمح فقط باستبدال قائمة السور.
+ */
+export const SurahsPage = ({
+  q = '',
+  type = '',
+  surahs: surahsProp,
+  dataMode = 'seed',
+}: {
+  q?: string
+  type?: string
+  surahs?: Surah[]
+  dataMode?: 'seed' | 'd1'
+}) => {
+  const allSurahs = surahsProp && surahsProp.length ? surahsProp : SURAHS
+  let surahs = [...allSurahs]
   if (q) surahs = surahs.filter(s => s.name.includes(q) || s.nameLatin.toLowerCase().includes(q.toLowerCase()))
   if (type === 'مكية' || type === 'مدنية') surahs = surahs.filter(s => s.type === type)
 

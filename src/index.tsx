@@ -221,15 +221,21 @@ app.get('/ayah/:surah/:ayah', c => {
   )
 })
 
-app.get('/books', c => {
+app.get('/books', async c => {
   const q = c.req.query('q') || ''
   const school = c.req.query('school') || ''
   const sort = c.req.query('sort') || 'popular'
-  return c.render(<BooksPage q={q} school={school} sort={sort} />, {
-    title: 'كتب التفسير',
-    description: 'فهرس كتب تفسير القرآن الكريم المتوفّرة في المنصّة، مرتّبة بحسب المدرسة التفسيرية والشهرة.',
-    canonical: canonicalUrl(c, '/books'),
-  } as any)
+  // DataProvider: D1 إن توفّر env.DB، وإلا seed
+  const data = getDataProvider(c.env as any)
+  const [books, authors] = await Promise.all([data.listBooks(), data.listAuthors()])
+  return c.render(
+    <BooksPage q={q} school={school} sort={sort} books={books} authors={authors} dataMode={data.name} />,
+    {
+      title: 'كتب التفسير',
+      description: 'فهرس كتب تفسير القرآن الكريم المتوفّرة في المنصّة، مرتّبة بحسب المدرسة التفسيرية والشهرة.',
+      canonical: canonicalUrl(c, '/books'),
+    } as any,
+  )
 })
 app.get('/books/:id', c => {
   const id = c.req.param('id')
@@ -246,14 +252,19 @@ app.get('/books/:id', c => {
   )
 })
 
-app.get('/authors', c => {
+app.get('/authors', async c => {
   const q = c.req.query('q') || ''
   const sort = c.req.query('sort') || 'oldest'
-  return c.render(<AuthorsPage q={q} sort={sort} />, {
-    title: 'المؤلفون',
-    description: 'مؤلّفو كتب التفسير المتوفّرة في المنصّة: تواريخهم ومدارسهم وأعمالهم.',
-    canonical: canonicalUrl(c, '/authors'),
-  } as any)
+  const data = getDataProvider(c.env as any)
+  const [authors, books] = await Promise.all([data.listAuthors(), data.listBooks()])
+  return c.render(
+    <AuthorsPage q={q} sort={sort} authors={authors} books={books} dataMode={data.name} />,
+    {
+      title: 'المؤلفون',
+      description: 'مؤلّفو كتب التفسير المتوفّرة في المنصّة: تواريخهم ومدارسهم وأعمالهم.',
+      canonical: canonicalUrl(c, '/authors'),
+    } as any,
+  )
 })
 app.get('/authors/:id', c => {
   const id = c.req.param('id')
@@ -297,14 +308,19 @@ app.get('/categories/:id', c => {
   } as any)
 })
 
-app.get('/surahs', c => {
+app.get('/surahs', async c => {
   const q = c.req.query('q') || ''
   const type = c.req.query('type') || ''
-  return c.render(<SurahsPage q={q} type={type} />, {
-    title: 'سور القرآن',
-    description: 'فهرس سور القرآن الكريم الـ 114 مع نوعها (مكية/مدنية) وعدد آياتها وترتيب نزولها.',
-    canonical: canonicalUrl(c, '/surahs'),
-  } as any)
+  const data = getDataProvider(c.env as any)
+  const surahs = await data.listSurahs()
+  return c.render(
+    <SurahsPage q={q} type={type} surahs={surahs} dataMode={data.name} />,
+    {
+      title: 'سور القرآن',
+      description: 'فهرس سور القرآن الكريم الـ 114 مع نوعها (مكية/مدنية) وعدد آياتها وترتيب نزولها.',
+      canonical: canonicalUrl(c, '/surahs'),
+    } as any,
+  )
 })
 app.get('/surahs/:n', c => {
   const n = parseIntSafe(c.req.param('n')) || 0
@@ -372,11 +388,14 @@ app.get('/history', c => c.render(
   } as any,
 ))
 
-app.get('/dashboard', c => {
-  const env: any = c.env || {}
-  const dataMode: 'seed' | 'd1' = env.DB ? 'd1' : 'seed'
+app.get('/dashboard', async c => {
+  // مُحدَّث: نمرّر إحصاءات DataProvider الفعلية (seed أو D1) للصفحة
+  // بدل إعادة حسابها من seed داخل الواجهة. الشارة في Dashboard تعرض
+  // وضع البيانات الفعلي بناءً على data.name.
+  const data = getDataProvider(c.env as any)
+  const stats = await data.getStatsDetailed()
   return c.render(
-    <DashboardPage dataMode={dataMode} />,
+    <DashboardPage dataMode={data.name} stats={stats} />,
     {
       title: 'لوحة الإحصاءات',
       description: 'نظرة شاملة على محتوى التطبيق: الكتب، المؤلفون، المدارس التفسيرية، توزيع القرون، والسور الأكثر تغطية.',

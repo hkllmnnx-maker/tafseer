@@ -1,11 +1,30 @@
 // صفحة المؤلفين والمفسرين
 import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import { IconUser, IconArrowRightCircle, IconBook, IconCalendar, IconSearch } from '../icons'
-import { AUTHORS } from '../../data/authors'
-import { BOOKS } from '../../data/books'
+import { AUTHORS, type Author } from '../../data/authors'
+import { BOOKS, type TafseerBook } from '../../data/books'
 
-export const AuthorsPage = ({ q = '', sort = 'oldest' }: { q?: string; sort?: string }) => {
-  let authors = [...AUTHORS]
+/**
+ * AuthorsPage يقبل props اختيارية للبيانات من DataProvider (seed أو D1).
+ * إن لم تُمرَّر يقع على seed arrays — fallback آمن.
+ */
+export const AuthorsPage = ({
+  q = '',
+  sort = 'oldest',
+  authors: authorsProp,
+  books: booksProp,
+  dataMode = 'seed',
+}: {
+  q?: string
+  sort?: string
+  authors?: Author[]
+  books?: TafseerBook[]
+  dataMode?: 'seed' | 'd1'
+}) => {
+  const allAuthors = authorsProp && authorsProp.length ? authorsProp : AUTHORS
+  const allBooks   = booksProp   && booksProp.length   ? booksProp   : BOOKS
+
+  let authors = [...allAuthors]
   if (q) {
     authors = authors.filter(a => a.name.includes(q) || a.fullName.includes(q) || a.bio.includes(q))
   }
@@ -42,7 +61,7 @@ export const AuthorsPage = ({ q = '', sort = 'oldest' }: { q?: string; sort?: st
 
         <div class="feature-grid">
           {authors.map(a => {
-            const books = BOOKS.filter(b => b.authorId === a.id)
+            const books = allBooks.filter(b => b.authorId === a.id)
             return (
               <a href={`/authors/${a.id}`} class="feature-card" style="text-decoration:none;color:inherit;display:block">
                 <div class="feature-icon"><IconUser /></div>

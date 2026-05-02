@@ -1,22 +1,41 @@
 // صفحة كتب التفسير
 import { Header, Footer, Breadcrumbs, Toast } from '../components/layout'
 import { IconBook, IconArrowRightCircle, IconUser, IconHash, IconSearch, IconExternal } from '../icons'
-import { BOOKS, type TafseerSchool } from '../../data/books'
-import { AUTHORS } from '../../data/authors'
+import { BOOKS, type TafseerBook, type TafseerSchool } from '../../data/books'
+import { AUTHORS, type Author } from '../../data/authors'
 import { TAFSEERS } from '../../data/tafseers'
 
+/**
+ * BooksPage يقبل props اختيارية لإحلال البيانات من DataProvider (D1 أو seed).
+ * عند عدم تمرير books/authors يقع تلقائيًا على seed arrays — لا كسر للسلوك القديم.
+ */
 export const BooksPage = ({
   q = '',
   school = '',
   sort = 'popular',
-}: { q?: string; school?: string; sort?: string }) => {
+  books: booksProp,
+  authors: authorsProp,
+  bookCounts,
+  dataMode = 'seed',
+}: {
+  q?: string
+  school?: string
+  sort?: string
+  books?: TafseerBook[]
+  authors?: Author[]
+  /** Map<bookId, tafseerCount> اختياري؛ يُحتسب من TAFSEERS إن غاب */
+  bookCounts?: Record<string, number>
+  dataMode?: 'seed' | 'd1'
+}) => {
   const SCHOOLS: TafseerSchool[] = ['بالمأثور', 'بالرأي', 'فقهي', 'لغوي', 'بلاغي', 'معاصر', 'ميسر', 'موسوعي']
 
-  let books = [...BOOKS]
+  const allBooks = booksProp && booksProp.length ? booksProp : BOOKS
+  const allAuthors = authorsProp && authorsProp.length ? authorsProp : AUTHORS
+
+  let books = [...allBooks]
   if (q) {
-    const nq = q.toLowerCase()
     books = books.filter(b => {
-      const a = AUTHORS.find(x => x.id === b.authorId)
+      const a = allAuthors.find(x => x.id === b.authorId)
       return (
         b.title.includes(q) ||
         b.fullTitle.includes(q) ||
@@ -32,14 +51,14 @@ export const BooksPage = ({
   if (sort === 'popular') books.sort((a, b) => b.popularity - a.popularity)
   else if (sort === 'oldest') {
     books.sort((a, b) => {
-      const aa = AUTHORS.find(x => x.id === a.authorId)?.deathYear || 0
-      const bb = AUTHORS.find(x => x.id === b.authorId)?.deathYear || 0
+      const aa = allAuthors.find(x => x.id === a.authorId)?.deathYear || 0
+      const bb = allAuthors.find(x => x.id === b.authorId)?.deathYear || 0
       return aa - bb
     })
   } else if (sort === 'newest') {
     books.sort((a, b) => {
-      const aa = AUTHORS.find(x => x.id === a.authorId)?.deathYear || 0
-      const bb = AUTHORS.find(x => x.id === b.authorId)?.deathYear || 0
+      const aa = allAuthors.find(x => x.id === a.authorId)?.deathYear || 0
+      const bb = allAuthors.find(x => x.id === b.authorId)?.deathYear || 0
       return bb - aa
     })
   } else if (sort === 'title') {
@@ -93,8 +112,10 @@ export const BooksPage = ({
         ) : (
           <div class="book-grid">
             {books.map(b => {
-              const author = AUTHORS.find(a => a.id === b.authorId)!
-              const tafseerCount = TAFSEERS.filter(t => t.bookId === b.id).length
+              const author = allAuthors.find(a => a.id === b.authorId)!
+              const tafseerCount = bookCounts && (b.id in bookCounts)
+                ? bookCounts[b.id]
+                : TAFSEERS.filter(t => t.bookId === b.id).length
               return (
                 <a href={`/books/${b.id}`} class="book-card" style="text-decoration:none;color:inherit">
                   <div class="book-cover">

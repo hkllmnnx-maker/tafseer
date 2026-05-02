@@ -7,9 +7,24 @@ import {
 import { getDetailedStats } from '../../lib/search'
 import { getSourceTypeMeta, getVerificationMeta } from '../../lib/scientific'
 import { SourceTypeBadge, VerificationBadge } from '../components/badges'
+import type { DetailedStatsLike } from '../../lib/data/types'
 
-export const DashboardPage = ({ dataMode = 'seed' }: { dataMode?: 'seed' | 'd1' } = {}) => {
-  const s = getDetailedStats()
+/**
+ * DashboardPage يقبل stats مُحسبة مسبقًا (من DataProvider — D1 أو seed).
+ * إن لم تُمرَّر تقع على getDetailedStats() القديم (seed) — fallback آمن.
+ *
+ * الشارة العلوية:
+ *  - "وضع D1" لون أخضر إذا dataMode === 'd1'
+ *  - "وضع العيّنة (Seed)" لون ذهبي إذا seed
+ */
+export const DashboardPage = ({
+  dataMode = 'seed',
+  stats: statsProp,
+}: {
+  dataMode?: 'seed' | 'd1'
+  stats?: DetailedStatsLike
+} = {}) => {
+  const s = statsProp ?? (getDetailedStats() as unknown as DetailedStatsLike)
   const maxBookCount = Math.max(1, ...s.perBook.map(b => b.tafseersCount))
   const maxSchoolCount = Math.max(1, ...s.bySchool.map(b => b.tafseersCount))
   const maxCenturyCount = Math.max(1, ...s.byCentury.map(b => b.tafseersCount))
@@ -37,11 +52,19 @@ export const DashboardPage = ({ dataMode = 'seed' }: { dataMode?: 'seed' | 'd1' 
             <span
               class={`badge ${dataMode === 'd1' ? 'badge-success' : 'badge-gold'}`}
               title={dataMode === 'd1'
-                ? 'مصدر البيانات: قاعدة Cloudflare D1'
+                ? 'مصدر البيانات: قاعدة Cloudflare D1 — متّصل'
                 : 'مصدر البيانات: العيّنة المضمّنة (seed) — لم يتم ربط D1 بعد'}
             >
               <IconDatabase size={12} />
-              {dataMode === 'd1' ? 'وضع D1' : 'وضع العيّنة (Seed)'}
+              {dataMode === 'd1' ? 'وضع البيانات: D1 (متّصل)' : 'وضع البيانات: عيّنة (Seed)'}
+            </span>
+            <span
+              class={`badge ${dataMode === 'd1' ? 'badge-success' : 'badge-outline'}`}
+              title={dataMode === 'd1'
+                ? 'D1 binding مفعّل ومستجيب'
+                : 'D1 binding غير متاح في هذه البيئة'}
+            >
+              {dataMode === 'd1' ? '● D1 متّصل' : '○ D1 غير مفعّل'}
             </span>
             <span class="badge" title="نسبة تغطية القرآن في العيّنة الحالية">
               تغطية القرآن: {s.scientific.quranCoveragePercent}%
@@ -53,6 +76,14 @@ export const DashboardPage = ({ dataMode = 'seed' }: { dataMode?: 'seed' | 'd1' 
               منهجية التوثيق ↗
             </a>
           </div>
+          {dataMode === 'seed' ? (
+            <div class="mt-3 text-sm" style="background:var(--surface-2,#fff8e1);border-inline-start:3px solid var(--gold,#c9a45c);padding:.75rem 1rem;border-radius:var(--radius-sm,6px);line-height:1.7">
+              <strong>توصية:</strong> لا تزال البيانات المعروضة عيّنةً مضمَّنةً
+              في الكود. لتفعيل قاعدة البيانات الفعلية على Cloudflare D1، راجع
+              {' '}<a href="/" class="text-accent">docs/d1-smoke-test.md</a>{' '}
+              في المستودع.
+            </div>
+          ) : null}
         </div>
 
         {/* Totals */}
