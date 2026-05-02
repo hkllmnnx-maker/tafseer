@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    name: Build & Verify Data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify in-app data integrity
+        run: npm run verify:data
+
+      - name: Validate sample import fixtures
+        run: npm run validate:samples
+
+      - name: Validate invalid fixture (must fail)
+        # The invalid sample MUST be rejected — if the validator passes it,
+        # the CI run fails too, proving the validator catches bad data.
+        run: |
+          if node scripts/importers/validate-import.mjs fixtures/import-samples/invalid-sample.json --dry-run; then
+            echo "::error::Invalid sample was accepted; validator is broken."
+            exit 1
+          else
+            echo "Invalid sample correctly rejected."
+          fi
+
+      - name: Build (Cloudflare Pages)
+        run: npm run build
+
+      - name: Smoke check build artefacts
+        run: |
+          test -f dist/_worker.js
+          test -d dist/static || true
+          echo "Build artefacts look OK."

@@ -1,6 +1,10 @@
 # تفسير — Tafseer
 
+[![CI](https://github.com/hkllmnnx-maker/tafseer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hkllmnnx-maker/tafseer/actions/workflows/ci.yml)
+
 تطبيق ويب متقدم للبحث في كتب تفسير القرآن الكريم، بواجهة عربية أصيلة (RTL) ونظام تصميم احترافي مبني على Cloudflare Pages + Hono.
+
+> **حالة البيانات الحالية**: هذه نسخة تشغّل ببيانات seed داخل المستودع (114 سورة كاملة الفهرسة + ~295 آية + ~100 إدخال تفسير) وغالب نصوص التفاسير صياغات مختصرة (summary/sample) لا نقل حرفي. للتفاصيل انظر `/methodology` و `docs/scientific-verification.md` و `docs/roadmap.md`.
 
 ---
 
