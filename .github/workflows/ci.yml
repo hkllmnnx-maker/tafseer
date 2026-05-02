@@ -46,6 +46,26 @@ jobs:
             echo "Invalid sample correctly rejected."
           fi
 
+      - name: Validate Quran sample (valid file)
+        # Ensures validate-quran-json.mjs accepts a well-formed Quran JSON sample.
+        run: npm run validate:quran-sample
+
+      - name: Validate Quran invalid sample (must fail)
+        # The invalid Quran sample MUST be rejected (duplicates, ayah > max, empty text, etc.).
+        # If the validator passes it, CI fails — proving the validator catches bad data.
+        run: |
+          if node scripts/importers/validate-quran-json.mjs fixtures/import-samples/quran-invalid-sample.json --dry-run; then
+            echo "::error::Invalid Quran sample was accepted; validator is broken."
+            exit 1
+          else
+            echo "Invalid Quran sample correctly rejected."
+          fi
+
+      - name: D1 smoke check (dry-run, no Cloudflare secrets)
+        # Verifies seed SQL + migrations exist and prints the commands needed
+        # to load them into a real D1 instance. Does NOT require any secret.
+        run: npm run d1:smoke
+
       - name: Export seed → SQL/JSON (seed-to-d1)
         # Generates dist/import/seed-data.sql and seed-data.json.
         # Step also enforces internal validation; fails on schema/whitelist errors.

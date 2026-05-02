@@ -18,7 +18,8 @@
     "export:seed-check": "node scripts/importers/seed-to-d1.mjs --check",
     "test": "node --test tests/",
     "db:migrate:local": "wrangler d1 migrations apply tafseer-production --local",
-    "db:migrate:prod": "wrangler d1 migrations apply tafseer-production"
+    "db:migrate:prod": "wrangler d1 migrations apply tafseer-production",
+    "d1:smoke": "node scripts/d1-smoke-check.mjs"
   },
   "dependencies": {
     "hono": "^4.12.12"

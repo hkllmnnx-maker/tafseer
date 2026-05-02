@@ -1,5 +1,6 @@
 {
   "source": "ملف اختبار للأخطاء",
+  "sourceUrl": "http://insecure.example.com/",
   "note": "هذا الملف يحتوي على عدّة أخطاء متعمَّدة لاختبار validate-quran-json.mjs",
   "ayahs": [
     { "surah": 1, "ayah": 1, "text": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ" },
@@ -7,6 +8,9 @@
     { "surah": 1, "ayah": 8, "text": "آية رقم 8 لا توجد في الفاتحة (max=7)" },
     { "surah": 999, "ayah": 1, "text": "سورة 999 غير موجودة" },
     { "surah": 2, "ayah": 1, "text": "" },
-    { "surah": 2, "ayah": 2, "text": "نصّ صالح", "juz": 50 }
+    { "surah": 2, "ayah": 2, "text": "نصّ صالح", "juz": 50 },
+    { "surah": 2, "ayah": 3.5, "text": "رقم آية عشري غير مقبول" },
+    { "surah": 2, "ayah": 4, "text": "النصّ يحتوي undefined كقيمة محرَّفة" },
+    { "surah": 2, "ayah": 5, "text": "نصّ آخر", "sourceUrl": "ftp://bad.example.com/" }
   ]
 }
