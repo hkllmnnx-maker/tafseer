@@ -10,21 +10,26 @@
 
 ## 📊 جدول حالة المشروع (Project Status)
 
-> **آخر تحديث**: 2 مايو 2026 (v1.6 — Beta متقدّمة)
+> **آخر تحديث**: 2 مايو 2026 (v1.7 — Beta-to-Real-Data Hardening)
 
 | المحور | الحالة | التفاصيل |
 |--------|--------|----------|
 | **البنية الأساسية** | ✅ مكتملة | Hono + Cloudflare Pages + RTL + JSX |
-| **بيانات seed** | ✅ مكتملة | 114 سورة، 295 آية، 16 كتابًا، 100 تفسير |
-| **بيانات D1** | 🟡 جاهزة (غير مُفعَّلة) | المخطّط + المايجريشن + Provider جاهزون، يحتاج `wrangler d1 create` |
-| **محرّك البحث** | ✅ يعمل (seed) + 🟡 D1 (FTS5 اختياري) | بحث متقدّم + autocomplete + suggest API |
+| **بيانات seed** | ✅ مكتملة | 114 سورة، 295 آية، 12 كتابًا، 100 تفسير |
+| **بيانات D1** | ✅ جاهزة للتفعيل | المخطّط + المايجريشن + Provider مكتمل، نقطة `--d1` للتشغيل المحلي |
+| **DataProvider موحَّد** | ✅ مكتمل | جميع المسارات الحرجة عبر `getDataProvider(env)`، seed/D1 شفّاف |
+| **بحث D1 (مستقل)** | ✅ مكتمل | JOINs + relevance + filters داخل D1، بدون اعتماد seed، FTS5 اختياري |
+| **محرّك البحث** | ✅ seed + D1 | بحث متقدّم + autocomplete + suggest API + mode flag في الردود |
 | **واجهة المستخدم** | ✅ مكتملة | بحث، آية، قراءة متسلسلة، مقارنة، كتب، مؤلفون، فئات، لوحة |
 | **PWA** | ✅ v4 | Service Worker + Manifest + Offline + API fallback |
 | **CSP صارم** | ✅ مكتمل | `script-src 'self' 'sha256-...'` بلا `unsafe-inline` |
 | **Permissions-Policy** | ✅ مكتمل | إغلاق camera/mic/geo/payment/usb |
 | **HSTS / COOP / CORP** | ✅ مكتمل | كلها مفعَّلة |
-| **اختبارات الوحدات** | ✅ 18/18 ناجحة | `node:test` بدون تبعيات ثقيلة |
+| **حقن SQL** | ✅ محصَّن | جميع استعلامات D1 عبر `prepare().bind()` فقط، لا concatenation |
+| **اختبارات الوحدات** | ✅ 50/50 ناجحة | `node:test` + Mock D1 + Quran validator + normalize + seed export |
 | **CI (GitHub Actions)** | ✅ يعمل | verify-data + validate-samples + export-seed + tests + build |
+| **مستورد Quran JSON** | ✅ مكتمل | `validate-quran-json.mjs` + 16 اختبارًا + عينات صالحة/خاطئة |
+| **FTS5 Migration** | ✅ منفصل (اختياري) | `0002_optional_fts5.sql` لا يُطبَّق تلقائيًا |
 | **التحقّق العلمي** | 🟡 إطار جاهز | `sourceType` + `verificationStatus` على كل إدخال؛ المحتوى لا يزال غالبًا `summary` |
 | **التوثيق** | ✅ شامل | 8 ملفات في `/docs` + README + CONTRIBUTING + CHANGELOG + SECURITY |
 | **النشر** | 🟡 محلّيًا فقط | جاهز للنشر بـ `npm run deploy` بعد ضبط Cloudflare API token |
@@ -106,24 +111,44 @@
 | عن التطبيق | `/about` | — |
 
 ### 3.2 واجهة برمجية (JSON API)
+
+> **ملاحظة هندسية**: جميع المسارات الحرجة (stats, surahs, books, authors, categories, ayah, search, suggest) تمرّ عبر `getDataProvider(env)` وتُرجِع `mode: "seed" | "d1"` لتشخيص العميل. مسارات `/api/export/*` معزولة عن DataProvider بقصد، وهي **seed-only** (للتدقيق العلمي والمساهمة).
+
+#### واجهة القراءة الموحَّدة (DataProvider)
+| المسار | الوصف | المصدر |
+|---|---|---|
+| `GET /api/stats` | إحصاءات عامة (عدد كتب، مؤلفين، سور، آيات، تفاسير) | DataProvider |
+| `GET /api/stats/detailed` | إحصاءات تفصيلية (لكل كتاب/مؤلف/مدرسة/قرن) | DataProvider (تجميعات D1 native) |
+| `GET /api/suggest?q=&limit=` | اقتراحات autocomplete | DataProvider |
+| `GET /api/search?q=&...` | البحث (نفس فلاتر `/search` + relevance + pagination) | DataProvider (D1 JOINs مستقلة) |
+| `GET /api/surahs` / `GET /api/surahs/:n` | السور | DataProvider |
+| `GET /api/books` / `GET /api/books/:id` | الكتب | DataProvider |
+| `GET /api/authors` / `GET /api/authors/:id` | المؤلفون | DataProvider |
+| `GET /api/categories` | الموضوعات | DataProvider |
+| `GET /api/ayah/:surah/:ayah` | آية وتفاسيرها مع رسائل خطأ مفصّلة (404 لسورة/آية غير موجودة) | DataProvider |
+
+#### نقاط تصدير seed (Seed-only export — موسومة)
+كل ردّ يحتوي على `meta.source = "seed"` ورأس `X-Tafseer-Data-Source: seed`. الغرض: التدقيق العلمي وتسهيل المساهمات الخارجية.
+
 | المسار | الوصف |
 |---|---|
-| `GET /api/stats` | إحصاءات عامة (عدد كتب، مؤلفين، سور، آيات، تفاسير) |
-| `GET /api/stats/detailed` | إحصاءات تفصيلية (لكل كتاب/مؤلف/مدرسة/قرن) |
-| `GET /api/suggest?q=` | اقتراحات autocomplete |
-| `GET /api/search?q=&...` | البحث (نفس فلاتر `/search`) |
-| `GET /api/surahs` / `GET /api/surahs/:n` | السور |
-| `GET /api/books` / `GET /api/books/:id` | الكتب |
-| `GET /api/authors` / `GET /api/authors/:id` | المؤلفون |
-| `GET /api/categories` | الموضوعات |
-| `GET /api/ayah/:surah/:ayah` | آية وتفاسيرها |
-| `GET /api/export/all` | تصدير شامل JSON |
+| `GET /api/export/all` | تصدير شامل JSON (سور + كتب + مؤلفين + فئات + آيات + تفاسير + إحصاءات) |
 | `GET /api/export/books` | تصدير الكتب |
 | `GET /api/export/authors` | تصدير المؤلفين |
 | `GET /api/export/surahs` | تصدير السور |
 | `GET /api/export/ayahs` | تصدير الآيات |
 | `GET /api/export/tafseers` | تصدير التفاسير |
 | `GET /api/export/categories` | تصدير الموضوعات |
+
+#### أدوات التحقّق (offline scripts)
+| الأمر | الوصف |
+|---|---|
+| `npm run verify:data` | فحص اتساق بيانات seed (foreign keys، حدود الآيات، whitelist) |
+| `npm run validate:samples` | تحقّق من عينات استيراد التفاسير (dry-run) |
+| `npm run validate:quran-sample` | تحقّق من عينة JSON قرآنية صغيرة |
+| `npm run validate:quran -- <file> [--full] [--strict] [--json]` | مدقّق مستورد القرآن: 114 سورة، حدود الآيات، تكرار، نص فارغ، 6236 آية |
+| `npm run export:seed-sql` | توليد `dist/import/seed-data.sql` و `seed-data.json` لاستيراد D1 |
+| `npm run db:migrate:local` / `db:migrate:prod` | تطبيق المايجريشن على D1 |
 
 ### 3.3 ملفات نظامية
 - `/manifest.json` — PWA manifest

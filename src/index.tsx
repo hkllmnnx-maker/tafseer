@@ -399,15 +399,28 @@ app.get('/api/stats/detailed', async c => {
   return c.json({ ok: true, data: stats, mode: data.name })
 })
 
-// ============== JSON Export Endpoints ==============
+// ============== JSON Export Endpoints (SEED-only by design) ==============
+// هذه النقاط تُصدِّر بيانات seed الموجودة في src/data/* كما هي. هي ليست
+// واجهة قراءة عامّة (استخدم /api/surahs, /api/books ... لذلك). الغرض منها
+// هو التحقّق العلمي وتدقيق المصدر وتسهيل المساهمات الخارجية. لذلك:
+//   - لا تمرّ عبر DataProvider
+//   - تتضمّن عَلَمًا meta.source = 'seed' في جسم الجواب
+//   - تضع X-Tafseer-Data-Source: seed كرأس استجابة
 function jsonExport(c: any, filename: string, payload: any) {
   c.header('Content-Type', 'application/json; charset=utf-8')
   c.header('Content-Disposition', `attachment; filename="${filename}"`)
   c.header('Cache-Control', 'no-store')
+  c.header('X-Tafseer-Data-Source', 'seed')
   return c.body(JSON.stringify(payload, null, 2))
 }
-app.get('/api/export/all', c => jsonExport(c, 'tafseer-all.json', {
+const SEED_META = () => ({
+  source: 'seed' as const,
   exportedAt: new Date().toISOString(),
+  notice:
+    'بيانات seed داخل المستودع — للتدقيق العلمي والمساهمة فقط، ليست بديلًا عن واجهة /api/* في وضع D1.',
+})
+app.get('/api/export/all', c => jsonExport(c, 'tafseer-all.json', {
+  meta: SEED_META(),
   surahs: SURAHS,
   books: BOOKS,
   authors: AUTHORS,
@@ -416,12 +429,12 @@ app.get('/api/export/all', c => jsonExport(c, 'tafseer-all.json', {
   tafseers: TAFSEERS,
   stats: getStats(),
 }))
-app.get('/api/export/books', c => jsonExport(c, 'tafseer-books.json', BOOKS))
-app.get('/api/export/authors', c => jsonExport(c, 'tafseer-authors.json', AUTHORS))
-app.get('/api/export/surahs', c => jsonExport(c, 'tafseer-surahs.json', SURAHS))
-app.get('/api/export/ayahs', c => jsonExport(c, 'tafseer-ayahs.json', AYAHS))
-app.get('/api/export/tafseers', c => jsonExport(c, 'tafseer-tafseers.json', TAFSEERS))
-app.get('/api/export/categories', c => jsonExport(c, 'tafseer-categories.json', CATEGORIES))
+app.get('/api/export/books',      c => jsonExport(c, 'tafseer-books.json',      { meta: SEED_META(), data: BOOKS }))
+app.get('/api/export/authors',    c => jsonExport(c, 'tafseer-authors.json',    { meta: SEED_META(), data: AUTHORS }))
+app.get('/api/export/surahs',     c => jsonExport(c, 'tafseer-surahs.json',     { meta: SEED_META(), data: SURAHS }))
+app.get('/api/export/ayahs',      c => jsonExport(c, 'tafseer-ayahs.json',      { meta: SEED_META(), data: AYAHS }))
+app.get('/api/export/tafseers',   c => jsonExport(c, 'tafseer-tafseers.json',   { meta: SEED_META(), data: TAFSEERS }))
+app.get('/api/export/categories', c => jsonExport(c, 'tafseer-categories.json', { meta: SEED_META(), data: CATEGORIES }))
 app.get('/api/surahs', async c => {
   const data = getDataProvider(c.env as any)
   const list = await data.listSurahs()
@@ -456,7 +469,11 @@ app.get('/api/authors/:id', async c => {
   if (!a) return c.json({ ok: false, error: 'not_found' }, 404)
   return c.json({ ok: true, data: a, mode: data.name })
 })
-app.get('/api/categories', c => c.json({ ok: true, data: CATEGORIES }))
+app.get('/api/categories', async c => {
+  const data = getDataProvider(c.env as any)
+  const list = await data.listCategories()
+  return c.json({ ok: true, data: list, mode: data.name })
+})
 app.get('/api/ayah/:surah/:ayah', async c => {
   const surah = parseIntSafe(c.req.param('surah')) || 0
   const ayah = parseIntSafe(c.req.param('ayah')) || 0
@@ -518,16 +535,17 @@ app.get('/api/ayah/:surah/:ayah', async c => {
   })
 })
 
-app.get('/api/suggest', c => {
+app.get('/api/suggest', async c => {
   const q = c.req.query('q') || ''
   if (q.length > 80) return c.json({ ok: false, error: 'query_too_long' }, 400)
   const limit = Math.min(20, Math.max(1, parseIntSafe(c.req.query('limit')) || 10))
-  const items = suggest(q, limit)
+  const data = getDataProvider(c.env as any)
+  const items = await data.suggest(q, limit)
   c.header('Cache-Control', 'public, max-age=60')
-  return c.json({ ok: true, data: { q, items } })
+  return c.json({ ok: true, data: { q, items }, mode: data.name })
 })
 
-app.get('/api/search', c => {
+app.get('/api/search', async c => {
   const rawQ = c.req.query('q') || ''
   if (rawQ.length > MAX_QUERY_LENGTH) {
     return c.json({
@@ -558,7 +576,11 @@ app.get('/api/search', c => {
     page: c.req.query('page') as any,
     perPage: c.req.query('perPage') as any,
   })
-  return c.json({ ok: true, data: search(filters), filters })
+  // Route through DataProvider: D1 path is fully self-sufficient (joins, relevance);
+  // seed path falls back to in-memory engine. Mode is exposed for client diagnostics.
+  const data = getDataProvider(c.env as any)
+  const results = await data.search(filters)
+  return c.json({ ok: true, data: results, filters, mode: data.name })
 })
 
 // ============== PWA Manifest ==============
