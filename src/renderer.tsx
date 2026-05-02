@@ -6,11 +6,34 @@ interface RendererProps {
   ogImage?: string
   canonical?: string
   active?: string
+  noindex?: boolean
+  ogType?: string
 }
 
-export const renderer = jsxRenderer(({ children, title, description }: any) => {
-  const pageTitle = title ? `${title} · تفسير` : 'تفسير - تطبيق البحث في كتب تفسير القرآن الكريم'
-  const desc = description || 'تطبيق ويب بحثي متقدم في كتب التفسير: ابحث في الآيات، قارن بين كبار المفسرين، واكتشف معاني القرآن الكريم بأدوات علمية دقيقة.'
+const SITE_NAME = 'تفسير'
+const DEFAULT_TITLE = 'تفسير — البحث العلمي في كتب تفسير القرآن الكريم'
+const DEFAULT_DESC =
+  'منصّة ويب علميّة للبحث المتقدّم في كتب تفسير القرآن الكريم: ابحث في الآيات، قارن بين كبار المفسّرين، واكتشف معاني القرآن بأدوات علميّة دقيقة وشفافيّة كاملة في المصادر.'
+
+export const renderer = jsxRenderer(({ children, title, description, canonical, ogImage, noindex, ogType }: any) => {
+  const pageTitle = title ? `${title} · ${SITE_NAME}` : DEFAULT_TITLE
+  const desc = description || DEFAULT_DESC
+  const og  = ogImage || '/static/app-icon.png'
+  const type = ogType || 'website'
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    description: DEFAULT_DESC,
+    inLanguage: 'ar',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: '/search?q={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
+  }
+
   return (
     <html lang="ar" dir="rtl">
       <head>
@@ -19,23 +42,42 @@ export const renderer = jsxRenderer(({ children, title, description }: any) => {
         <meta name="theme-color" content="#0f5c3e" />
         <title>{pageTitle}</title>
         <meta name="description" content={desc} />
-        <meta name="keywords" content="تفسير, قرآن, آيات, تفسير الطبري, ابن كثير, القرطبي, السعدي, البحث في القرآن" />
+        <meta name="keywords" content="تفسير, قرآن, آيات, تفسير الطبري, ابن كثير, القرطبي, السعدي, السعدي تفسير, البحث في القرآن, تفسير ميسّر, منهج علمي" />
+        <meta name="application-name" content={SITE_NAME} />
+        <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        {noindex ? <meta name="robots" content="noindex, nofollow" /> : null}
+        {canonical ? <link rel="canonical" href={canonical} /> : null}
 
         {/* Open Graph */}
-        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:type" content={type} />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={desc} />
-        <meta property="og:image" content="/static/app-icon.png" />
+        <meta property="og:image" content={og} />
         <meta property="og:locale" content="ar_AR" />
-        <meta name="twitter:card" content="summary_large_image" />
 
-        {/* Icons */}
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={pageTitle} />
+        <meta name="twitter:description" content={desc} />
+        <meta name="twitter:image" content={og} />
+
+        {/* Icons & PWA */}
         <link rel="icon" type="image/png" href="/static/app-icon.png" />
         <link rel="apple-touch-icon" href="/static/app-icon.png" />
         <link rel="manifest" href="/manifest.json" />
 
+        {/* Performance hints — preconnect to font CDN */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+
         {/* Styles */}
         <link href="/static/style.css" rel="stylesheet" />
+
+        {/* Structured data — site search */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
         {/* Theme - applied early to avoid flash */}
         <script dangerouslySetInnerHTML={{ __html: `

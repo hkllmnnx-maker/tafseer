@@ -140,7 +140,17 @@ function parseArrayParam(c: any, key: string): string[] {
 }
 
 // ============== Pages ==============
-app.get('/', c => c.render(<HomePage />, { title: 'الرئيسية' } as any))
+// مساعد لبناء canonical URL مطلق من المسار
+function canonicalUrl(c: any, path: string): string {
+  const u = new URL(path, c.req.url)
+  return u.toString()
+}
+
+app.get('/', c => c.render(<HomePage />, {
+  title: 'الرئيسية',
+  description: 'منصّة تفسير: ابحث في كتب تفسير القرآن الكريم بمنهجية علميّة، تصفّح السور والآيات، وراجع المصادر بشفافية كاملة.',
+  canonical: canonicalUrl(c, '/'),
+} as any))
 
 app.get('/search', c => {
   const filters = sanitizeFilters({
@@ -165,7 +175,13 @@ app.get('/search', c => {
   const results = search(filters)
   return c.render(
     <SearchPage filters={filters} results={results} />,
-    { title: filters.q ? `البحث عن: ${filters.q}` : 'البحث المتقدم' } as any,
+    {
+      title: filters.q ? `البحث عن: ${filters.q}` : 'البحث المتقدم',
+      description: filters.q
+        ? `نتائج البحث عن «${filters.q}» في كتب تفسير القرآن الكريم.`
+        : 'بحث متقدّم في كتب التفسير: فلاتر بالسورة، الكتاب، المؤلف، نوع المصدر، وحالة التحقّق.',
+      canonical: canonicalUrl(c, filters.q ? `/search?q=${encodeURIComponent(filters.q)}` : '/search'),
+    } as any,
   )
 })
 
@@ -188,7 +204,9 @@ app.get('/ayah/:surah/:ayah', c => {
     <AyahPage surah={surah} ayah={ayah} q={q} />,
     {
       title: `سورة ${surahData.name} - آية ${ayah}`,
-      description: `تفسير الآية ${ayah} من سورة ${surahData.name} من عدة كتب تفسير.`,
+      description: `تفسير الآية ${ayah} من سورة ${surahData.name} من عدة كتب تفسير معتمدة، مع توضيح حالة التحقّق ومصدر كل نص.`,
+      canonical: canonicalUrl(c, `/ayah/${surah}/${ayah}`),
+      ogType: 'article',
     } as any,
   )
 })
@@ -197,26 +215,44 @@ app.get('/books', c => {
   const q = c.req.query('q') || ''
   const school = c.req.query('school') || ''
   const sort = c.req.query('sort') || 'popular'
-  return c.render(<BooksPage q={q} school={school} sort={sort} />, { title: 'كتب التفسير' } as any)
+  return c.render(<BooksPage q={q} school={school} sort={sort} />, {
+    title: 'كتب التفسير',
+    description: 'فهرس كتب تفسير القرآن الكريم المتوفّرة في المنصّة، مرتّبة بحسب المدرسة التفسيرية والشهرة.',
+    canonical: canonicalUrl(c, '/books'),
+  } as any)
 })
 app.get('/books/:id', c => {
   const id = c.req.param('id')
   const book = BOOKS.find(b => b.id === id)
   return c.render(
     <BookDetailPage bookId={id} />,
-    { title: book ? book.title : 'كتاب' } as any,
+    {
+      title: book ? book.title : 'كتاب',
+      description: book ? `معلومات كتاب «${book.title}» وفهرس التفاسير المتوفّرة منه في المنصّة.` : undefined,
+      canonical: canonicalUrl(c, `/books/${id}`),
+      ogType: 'book',
+    } as any,
   )
 })
 
 app.get('/authors', c => {
   const q = c.req.query('q') || ''
   const sort = c.req.query('sort') || 'oldest'
-  return c.render(<AuthorsPage q={q} sort={sort} />, { title: 'المؤلفون' } as any)
+  return c.render(<AuthorsPage q={q} sort={sort} />, {
+    title: 'المؤلفون',
+    description: 'مؤلّفو كتب التفسير المتوفّرة في المنصّة: تواريخهم ومدارسهم وأعمالهم.',
+    canonical: canonicalUrl(c, '/authors'),
+  } as any)
 })
 app.get('/authors/:id', c => {
   const id = c.req.param('id')
   const a = AUTHORS.find(x => x.id === id)
-  return c.render(<AuthorDetailPage authorId={id} />, { title: a ? a.name : 'مؤلف' } as any)
+  return c.render(<AuthorDetailPage authorId={id} />, {
+    title: a ? a.name : 'مؤلف',
+    description: a ? `سيرة موجزة للمؤلّف ${a.name} وكتبه التفسيريّة المتوفّرة.` : undefined,
+    canonical: canonicalUrl(c, `/authors/${id}`),
+    ogType: 'profile',
+  } as any)
 })
 
 app.get('/compare', c => {
@@ -225,28 +261,48 @@ app.get('/compare', c => {
   const bookIds = parseArrayParam(c, 'bookIds')
   return c.render(
     <ComparePage surah={surah} ayah={ayah} bookIds={bookIds} />,
-    { title: 'المقارنة بين التفاسير' } as any,
+    {
+      title: 'المقارنة بين التفاسير',
+      description: 'قارن بين تفاسير الآية الواحدة من عدّة كتب جنبًا إلى جنب.',
+      canonical: canonicalUrl(c, '/compare'),
+    } as any,
   )
 })
 
-app.get('/categories', c => c.render(<CategoriesPage />, { title: 'البحث الموضوعي' } as any))
+app.get('/categories', c => c.render(<CategoriesPage />, {
+  title: 'البحث الموضوعي',
+  description: 'تصفّح آيات القرآن الكريم وتفاسيرها مرتّبة حسب الموضوعات الكبرى.',
+  canonical: canonicalUrl(c, '/categories'),
+} as any))
 app.get('/categories/:id', c => {
   const id = c.req.param('id')
   const cat = CATEGORIES.find(x => x.id === id)
-  return c.render(<CategoryDetailPage id={id} />, { title: cat ? cat.name : 'موضوع' } as any)
+  return c.render(<CategoryDetailPage id={id} />, {
+    title: cat ? cat.name : 'موضوع',
+    description: cat ? `الآيات المتعلّقة بموضوع «${cat.name}» وتفاسيرها.` : undefined,
+    canonical: canonicalUrl(c, `/categories/${id}`),
+  } as any)
 })
 
 app.get('/surahs', c => {
   const q = c.req.query('q') || ''
   const type = c.req.query('type') || ''
-  return c.render(<SurahsPage q={q} type={type} />, { title: 'سور القرآن' } as any)
+  return c.render(<SurahsPage q={q} type={type} />, {
+    title: 'سور القرآن',
+    description: 'فهرس سور القرآن الكريم الـ 114 مع نوعها (مكية/مدنية) وعدد آياتها وترتيب نزولها.',
+    canonical: canonicalUrl(c, '/surahs'),
+  } as any)
 })
 app.get('/surahs/:n', c => {
   const n = parseIntSafe(c.req.param('n')) || 0
   const s = getSurahByNumber(n)
   return c.render(
     <SurahDetailPage surahNumber={n} />,
-    { title: s ? `سورة ${s.name}` : 'سورة' } as any,
+    {
+      title: s ? `سورة ${s.name}` : 'سورة',
+      description: s ? `تفاصيل سورة ${s.name}: عدد الآيات، نوع السورة، ترتيب النزول، والآيات المتوفّرة في العينة.` : undefined,
+      canonical: canonicalUrl(c, `/surahs/${n}`),
+    } as any,
   )
 })
 
@@ -261,24 +317,34 @@ app.get('/read/:n', c => {
     {
       title: s ? `قراءة سورة ${s.name}` : 'قراءة',
       description: s ? `قراءة متسلسلة لسورة ${s.name} مع التفاسير المدمجة لكل آية.` : undefined,
+      canonical: canonicalUrl(c, `/read/${n}`),
+      ogType: 'article',
     } as any,
   )
 })
 
-app.get('/about', c => c.render(<AboutPage />, { title: 'عن التطبيق' } as any))
+app.get('/about', c => c.render(<AboutPage />, {
+  title: 'عن التطبيق',
+  description: 'تعرّف على منصّة تفسير: الأهداف، الفريق، والتقنيات المستخدمة.',
+  canonical: canonicalUrl(c, '/about'),
+} as any))
 app.get('/methodology', c => c.render(
   <MethodologyPage />,
   {
     title: 'منهجية التوثيق العلمي',
     description: 'كيف نوثّق نصوص التفسير ونميّز بين النصوص الأصلية والملخّصات والعيّنات.',
+    canonical: canonicalUrl(c, '/methodology'),
   } as any,
 ))
 
+// صفحات تخزّن محتواها محليًا في المتصفّح فقط — لا قيمة لفهرستها في محرّكات البحث
 app.get('/bookmarks', c => c.render(
   <BookmarksPage />,
   {
     title: 'المفضلة',
     description: 'الآيات التي حفظتها للمراجعة لاحقًا. تُخزَّن محليًا في متصفّحك فقط.',
+    canonical: canonicalUrl(c, '/bookmarks'),
+    noindex: true,
   } as any,
 ))
 
@@ -287,6 +353,8 @@ app.get('/history', c => c.render(
   {
     title: 'سجل التصفح',
     description: 'آخر الآيات التي تصفّحتها مؤخرًا. يُخزَّن محليًا في متصفّحك فقط.',
+    canonical: canonicalUrl(c, '/history'),
+    noindex: true,
   } as any,
 ))
 
@@ -295,6 +363,7 @@ app.get('/dashboard', c => c.render(
   {
     title: 'لوحة الإحصاءات',
     description: 'نظرة شاملة على محتوى التطبيق: الكتب، المؤلفون، المدارس التفسيرية، توزيع القرون، والسور الأكثر تغطية.',
+    canonical: canonicalUrl(c, '/dashboard'),
   } as any,
 ))
 
@@ -451,10 +520,12 @@ app.get('/api/search', c => {
 // ============== PWA Manifest ==============
 app.get('/manifest.json', c => {
   return c.json({
-    name: 'تفسير - البحث في كتب تفسير القرآن',
+    name: 'تفسير — البحث العلمي في كتب تفسير القرآن الكريم',
     short_name: 'تفسير',
-    description: 'تطبيق ويب علمي متقدم للبحث في كتب التفسير',
+    description:
+      'منصّة ويب علميّة للبحث المتقدّم في كتب تفسير القرآن الكريم، مع التزام بالمنهجية العلميّة وشفافية المصادر.',
     start_url: '/',
+    scope: '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#fdfcf8',
@@ -466,35 +537,76 @@ app.get('/manifest.json', c => {
       { src: '/static/app-icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
       { src: '/static/app-icon.png', sizes: '1024x1024', type: 'image/png', purpose: 'any maskable' },
     ],
-    categories: ['education', 'books', 'reference'],
+    categories: ['education', 'books', 'reference', 'religion'],
+    shortcuts: [
+      { name: 'البحث', short_name: 'بحث',  url: '/search' },
+      { name: 'لوحة الإحصاءات', short_name: 'إحصاءات', url: '/dashboard' },
+      { name: 'المنهجية العلمية', short_name: 'منهجية', url: '/methodology' },
+      { name: 'سور القرآن', short_name: 'السور', url: '/surahs' },
+    ],
   })
 })
 
 // robots.txt + sitemap
 app.get('/robots.txt', c => {
+  const sitemapUrl = new URL('/sitemap.xml', c.req.url).toString()
   return c.text(
-    `User-agent: *\nAllow: /\nSitemap: ${new URL('/sitemap.xml', c.req.url).toString()}\n`,
+    [
+      'User-agent: *',
+      'Allow: /',
+      'Disallow: /api/',          // API ليست محتوى للزحف
+      'Disallow: /bookmarks',     // محلية للمستخدم
+      'Disallow: /history',       // محلية للمستخدم
+      '',
+      `Sitemap: ${sitemapUrl}`,
+      '',
+    ].join('\n'),
   )
 })
+
 app.get('/sitemap.xml', c => {
   const base = new URL('/', c.req.url).toString().replace(/\/$/, '')
   // نُدرج فقط الآيات الموجودة في العينة (لا نزعم تغطية القرآن كاملاً).
   // كذلك نضمّن صفحة /methodology و /read/:n للسور المغطّاة.
   const surahsWithAyahs = new Set(AYAHS.map(a => a.surah))
-  const urls: string[] = [
-    '/', '/search', '/books', '/authors', '/categories', '/compare',
-    '/surahs', '/about', '/methodology',
-    ...BOOKS.map(b => `/books/${b.id}`),
-    ...AUTHORS.map(a => `/authors/${a.id}`),
-    ...CATEGORIES.map(c2 => `/categories/${c2.id}`),
-    ...SURAHS.map(s => `/surahs/${s.number}`),
-    ...Array.from(surahsWithAyahs).sort((a, b) => a - b).map(n => `/read/${n}`),
-    ...AYAHS.map(a => `/ayah/${a.surah}/${a.number}`),
+  const today = new Date().toISOString().slice(0, 10)
+
+  type Entry = { loc: string; priority: number; changefreq: string }
+  const entries: Entry[] = [
+    { loc: '/',            priority: 1.0, changefreq: 'weekly'  },
+    { loc: '/search',      priority: 0.9, changefreq: 'daily'   },
+    { loc: '/methodology', priority: 0.9, changefreq: 'monthly' },
+    { loc: '/dashboard',   priority: 0.8, changefreq: 'weekly'  },
+    { loc: '/books',       priority: 0.8, changefreq: 'weekly'  },
+    { loc: '/authors',     priority: 0.7, changefreq: 'weekly'  },
+    { loc: '/categories',  priority: 0.7, changefreq: 'weekly'  },
+    { loc: '/surahs',      priority: 0.8, changefreq: 'weekly'  },
+    { loc: '/compare',     priority: 0.6, changefreq: 'monthly' },
+    { loc: '/about',       priority: 0.5, changefreq: 'monthly' },
+
+    ...BOOKS.map(b      => ({ loc: `/books/${b.id}`,        priority: 0.7, changefreq: 'monthly' })),
+    ...AUTHORS.map(a    => ({ loc: `/authors/${a.id}`,      priority: 0.6, changefreq: 'monthly' })),
+    ...CATEGORIES.map(c2 => ({ loc: `/categories/${c2.id}`, priority: 0.6, changefreq: 'monthly' })),
+    ...SURAHS.map(s     => ({ loc: `/surahs/${s.number}`,   priority: 0.6, changefreq: 'monthly' })),
+    ...Array.from(surahsWithAyahs).sort((a, b) => a - b).map(n => ({
+      loc: `/read/${n}`, priority: 0.7, changefreq: 'monthly',
+    })),
+    ...AYAHS.map(a => ({
+      loc: `/ayah/${a.surah}/${a.number}`, priority: 0.6, changefreq: 'monthly',
+    })),
   ]
+
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    urls.map(u => `  <url><loc>${base}${u}</loc></url>`).join('\n') +
+    entries.map(e =>
+      `  <url>` +
+      `<loc>${base}${e.loc}</loc>` +
+      `<lastmod>${today}</lastmod>` +
+      `<changefreq>${e.changefreq}</changefreq>` +
+      `<priority>${e.priority.toFixed(1)}</priority>` +
+      `</url>`,
+    ).join('\n') +
     `\n</urlset>`
   return c.body(xml, 200, { 'Content-Type': 'application/xml; charset=utf-8' })
 })

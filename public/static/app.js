@@ -792,10 +792,35 @@
     initReadPage()
   })
 
-  // ============== Service Worker (basic) ==============
+  // ============== Service Worker — مع تحديث فوري ==============
+  // عند توفّر إصدار جديد من sw.js، نطلب من الـ SW تخطّي الانتظار وتفعيل
+  // الإصدار الجديد مباشرة، ثم نعيد تحميل الصفحة مرة واحدة فقط لتفادي علوق
+  // المستخدم على نسخة قديمة بعد deploy.
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        // تحقق من وجود تحديث في الخلفية كل 30 دقيقة.
+        setInterval(() => { reg.update().catch(() => {}) }, 30 * 60 * 1000)
+
+        // عند ظهور SW جديد منتظر → اطلب تفعيله فورًا.
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing
+          if (!nw) return
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              try { nw.postMessage({ type: 'SKIP_WAITING' }) } catch (e) {}
+            }
+          })
+        })
+      }).catch(() => { /* تجاهل أخطاء التسجيل */ })
+
+      // عند تبديل الـ controller (بعد SKIP_WAITING) أعد تحميل الصفحة مرة واحدة.
+      let reloaded = false
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloaded) return
+        reloaded = true
+        try { location.reload() } catch (e) {}
+      })
     })
   }
 })()
