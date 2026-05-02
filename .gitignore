@@ -32,3 +32,8 @@ lerna-debug.log*
 # misc
 .DS_Store
 dist/import/
+
+# Local Quran imports (NEVER commit full Quran JSON files)
+.imports/
+*.quran.json
+quran-full.json
