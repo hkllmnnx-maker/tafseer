@@ -154,8 +154,25 @@ export const BooksPage = ({
   )
 }
 
-export const BookDetailPage = ({ bookId }: { bookId: string }) => {
-  const book = BOOKS.find(b => b.id === bookId)
+export const BookDetailPage = ({
+  bookId,
+  book: bookProp,
+  author: authorProp,
+  tafseersCount,
+  sampleTafseers,
+  relatedBooks,
+  dataMode = 'seed',
+}: {
+  bookId: string
+  book?: any
+  author?: any
+  tafseersCount?: number
+  sampleTafseers?: any[]
+  relatedBooks?: any[]
+  dataMode?: 'seed' | 'd1'
+}) => {
+  // إن لم تُمرَّر props، نقع على seed (fallback آمن).
+  const book = bookProp || BOOKS.find(b => b.id === bookId)
   if (!book) {
     return (
       <>
@@ -170,8 +187,14 @@ export const BookDetailPage = ({ bookId }: { bookId: string }) => {
       </>
     )
   }
-  const author = AUTHORS.find(a => a.id === book.authorId)!
-  const tafseers = TAFSEERS.filter(t => t.bookId === book.id)
+  const author = authorProp || AUTHORS.find(a => a.id === book.authorId)!
+  const tafseers = sampleTafseers && sampleTafseers.length
+    ? sampleTafseers
+    : TAFSEERS.filter(t => t.bookId === book.id)
+  const totalTafseers = typeof tafseersCount === 'number'
+    ? tafseersCount
+    : TAFSEERS.filter(t => t.bookId === book.id).length
+  const moreBooks = relatedBooks || (author ? BOOKS.filter(b => b.authorId === author.id && b.id !== bookId) : [])
 
   return (
     <>
@@ -197,7 +220,10 @@ export const BookDetailPage = ({ bookId }: { bookId: string }) => {
               <div class="flex flex-wrap gap-2 mb-4">
                 {book.schools.map(s => <span class="badge">{s}</span>)}
                 {book.volumes ? <span class="badge badge-gold">{book.volumes} مجلد</span> : null}
-                <span class="badge badge-outline">{tafseers.length} تفسير مفهرس</span>
+                <span class="badge badge-outline">{totalTafseers} تفسير مفهرس</span>
+                <span class="badge badge-outline" title="مصدر البيانات الحالي">
+                  وضع البيانات: {dataMode === 'd1' ? 'D1' : 'Seed'}
+                </span>
               </div>
               <p style="line-height:1.9">{book.description}</p>
               <div class="flex gap-2 mt-4">
@@ -233,6 +259,34 @@ export const BookDetailPage = ({ bookId }: { bookId: string }) => {
                   </header>
                   <div class="tafseer-body" style="max-height:140px;overflow:hidden;position:relative">
                     {t.text.slice(0, 200)}…
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {moreBooks && moreBooks.length > 0 && (
+          <section style="margin-top:2.5rem">
+            <h2 class="section-title mb-4">
+              <span class="icon-deco"><IconBook size={18} /></span>
+              كتب أخرى لنفس المؤلّف
+            </h2>
+            <div class="book-grid">
+              {moreBooks.slice(0, 6).map((rb: any) => (
+                <a href={`/books/${rb.id}`} class="book-card" style="text-decoration:none;color:inherit">
+                  <div class="book-cover">
+                    <svg class="book-cover-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                      <path d="M8 7h8" /><path d="M8 11h8" />
+                    </svg>
+                  </div>
+                  <div class="book-body">
+                    <div class="book-title">{rb.title}</div>
+                    <div class="book-tags">
+                      {(rb.schools || []).slice(0, 2).map((s: string) => <span class="badge">{s}</span>)}
+                    </div>
+                    <div class="book-desc">{rb.description}</div>
                   </div>
                 </a>
               ))}

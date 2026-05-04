@@ -255,15 +255,35 @@ app.get('/books', async c => {
     } as any,
   )
 })
-app.get('/books/:id', c => {
+app.get('/books/:id', async c => {
   const id = c.req.param('id')
-  const book = BOOKS.find(b => b.id === id)
-  if (!book) c.status(404)
+  const data = getDataProvider(c.env as any)
+  const payload = data.getBookDetailPayload
+    ? await Promise.resolve(data.getBookDetailPayload(id))
+    : {
+        book: await Promise.resolve(data.getBookById(id)),
+        author: undefined,
+        tafseersCount: 0,
+        sampleTafseers: [],
+        relatedBooks: [],
+        mode: data.name,
+      }
+  if (!payload.book) c.status(404)
   return c.render(
-    <BookDetailPage bookId={id} />,
+    <BookDetailPage
+      bookId={id}
+      book={payload.book}
+      author={payload.author}
+      tafseersCount={payload.tafseersCount}
+      sampleTafseers={payload.sampleTafseers}
+      relatedBooks={payload.relatedBooks}
+      dataMode={data.name}
+    />,
     {
-      title: book ? book.title : 'كتاب غير موجود',
-      description: book ? `معلومات كتاب «${book.title}» وفهرس التفاسير المتوفّرة منه في المنصّة.` : undefined,
+      title: payload.book ? payload.book.title : 'كتاب غير موجود',
+      description: payload.book
+        ? `معلومات كتاب «${payload.book.title}» وفهرس التفاسير المتوفّرة منه في المنصّة.`
+        : undefined,
       canonical: canonicalUrl(c, `/books/${id}`),
       ogType: 'book',
     } as any,
@@ -284,16 +304,35 @@ app.get('/authors', async c => {
     } as any,
   )
 })
-app.get('/authors/:id', c => {
+app.get('/authors/:id', async c => {
   const id = c.req.param('id')
-  const a = AUTHORS.find(x => x.id === id)
-  if (!a) c.status(404)
-  return c.render(<AuthorDetailPage authorId={id} />, {
-    title: a ? a.name : 'مؤلف غير موجود',
-    description: a ? `سيرة موجزة للمؤلّف ${a.name} وكتبه التفسيريّة المتوفّرة.` : undefined,
-    canonical: canonicalUrl(c, `/authors/${id}`),
-    ogType: 'profile',
-  } as any)
+  const data = getDataProvider(c.env as any)
+  const payload = data.getAuthorDetailPayload
+    ? await Promise.resolve(data.getAuthorDetailPayload(id))
+    : {
+        author: await Promise.resolve(data.getAuthorById(id)),
+        books: [],
+        tafseersCount: 0,
+        mode: data.name,
+      }
+  if (!payload.author) c.status(404)
+  return c.render(
+    <AuthorDetailPage
+      authorId={id}
+      author={payload.author}
+      books={payload.books}
+      tafseersCount={payload.tafseersCount}
+      dataMode={data.name}
+    />,
+    {
+      title: payload.author ? payload.author.name : 'مؤلف غير موجود',
+      description: payload.author
+        ? `سيرة موجزة للمؤلّف ${payload.author.name} وكتبه التفسيريّة المتوفّرة.`
+        : undefined,
+      canonical: canonicalUrl(c, `/authors/${id}`),
+      ogType: 'profile',
+    } as any,
+  )
 })
 
 app.get('/compare', c => {
@@ -340,15 +379,37 @@ app.get('/surahs', async c => {
     } as any,
   )
 })
-app.get('/surahs/:n', c => {
+app.get('/surahs/:n', async c => {
   const n = parseIntSafe(c.req.param('n')) || 0
-  const s = getSurahByNumber(n)
-  if (!s) c.status(404)
+  const data = getDataProvider(c.env as any)
+  const payload = data.getSurahDetailPayload
+    ? await Promise.resolve(data.getSurahDetailPayload(n))
+    : {
+        surah: await Promise.resolve(data.getSurahByNumber(n)),
+        ayahs: [],
+        tafseersByAyah: {},
+        tafseersCount: 0,
+        mode: data.name,
+      }
+  const coverage = data.getQuranCoverageSummary
+    ? await Promise.resolve(data.getQuranCoverageSummary())
+    : undefined
+  if (!payload.surah) c.status(404)
   return c.render(
-    <SurahDetailPage surahNumber={n} />,
+    <SurahDetailPage
+      surahNumber={n}
+      surah={payload.surah}
+      ayahs={payload.ayahs}
+      tafseersByAyah={payload.tafseersByAyah}
+      tafseersCount={payload.tafseersCount}
+      coverage={coverage as any}
+      dataMode={data.name}
+    />,
     {
-      title: s ? `سورة ${s.name}` : 'سورة غير موجودة',
-      description: s ? `تفاصيل سورة ${s.name}: عدد الآيات، نوع السورة، ترتيب النزول، والآيات المتوفّرة في العينة.` : undefined,
+      title: payload.surah ? `سورة ${payload.surah.name}` : 'سورة غير موجودة',
+      description: payload.surah
+        ? `تفاصيل سورة ${payload.surah.name}: عدد الآيات، نوع السورة، ترتيب النزول، والآيات المتوفّرة في العينة.`
+        : undefined,
       canonical: canonicalUrl(c, `/surahs/${n}`),
     } as any,
   )

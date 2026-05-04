@@ -43,6 +43,7 @@ import type {
   SourceType, VerificationStatus,
   SearchFilters, SearchResults, Suggestion,
   QuranCoverageSummary, ReadSurahPayload,
+  BookDetailPayload, AuthorDetailPayload, SurahDetailPayload,
 } from './types'
 
 // ============== Minimal Typing for D1 ==============
@@ -675,6 +676,178 @@ export function makeD1Provider(db: D1Database): DataProvider {
         return rowToAuthor(r)
       } catch {
         return seedProvider.getAuthorById(id) as Author | undefined
+      }
+    },
+
+    // ---- New helpers: details / counts (D1, prepared statements) ----
+    async getBooksByAuthor(authorId: string): Promise<TafseerBook[]> {
+      if (!authorId || typeof authorId !== 'string') return []
+      try {
+        const r = await db.prepare(
+          `SELECT id, title, full_title, author_id, schools, volumes, description,
+                  published_year, edition, popularity, featured
+             FROM tafsir_books
+            WHERE author_id = ?1
+            ORDER BY popularity DESC, title ASC`
+        ).bind(authorId).all<any>()
+        const rows = r.results || []
+        if (!rows.length) {
+          // قد تكون قاعدة D1 فارغة → اسقط على seed
+          try {
+            const probe = await db.prepare('SELECT 1 AS x FROM tafsir_books LIMIT 1').first<any>()
+            if (!probe) return (seedProvider.getBooksByAuthor?.(authorId) || []) as TafseerBook[]
+          } catch { /* تجاهل */ }
+          return []
+        }
+        return rows.map(rowToBook)
+      } catch {
+        return (seedProvider.getBooksByAuthor?.(authorId) || []) as TafseerBook[]
+      }
+    },
+
+    async getTafseerCountByBook(bookId: string): Promise<number> {
+      if (!bookId || typeof bookId !== 'string') return 0
+      try {
+        const r = await db.prepare(
+          'SELECT COUNT(*) AS c FROM tafsir_entries WHERE book_id = ?1'
+        ).bind(bookId).first<any>()
+        return Number(r?.c || 0)
+      } catch {
+        return (seedProvider.getTafseerCountByBook?.(bookId) || 0) as number
+      }
+    },
+
+    async getTafseerCountByAuthor(authorId: string): Promise<number> {
+      if (!authorId || typeof authorId !== 'string') return 0
+      try {
+        const r = await db.prepare(
+          'SELECT COUNT(*) AS c FROM tafsir_entries WHERE author_id = ?1'
+        ).bind(authorId).first<any>()
+        return Number(r?.c || 0)
+      } catch {
+        return (seedProvider.getTafseerCountByAuthor?.(authorId) || 0) as number
+      }
+    },
+
+    /**
+     * Payload لصفحة /books/:id — استعلامات مُحسَّنة بالموازاة (لا N+1):
+     *   1) الكتاب
+     *   2) المؤلّف (مستقلّ — لا join)
+     *   3) عدد التفاسير
+     *   4) أوّل 8 تفاسير
+     *   5) كتب أخرى لنفس المؤلّف
+     */
+    async getBookDetailPayload(bookId: string): Promise<BookDetailPayload> {
+      if (!bookId || typeof bookId !== 'string') {
+        return { book: undefined, author: undefined, tafseersCount: 0, sampleTafseers: [], relatedBooks: [], mode: 'd1' }
+      }
+      try {
+        const book = await this.getBookById(bookId) as TafseerBook | undefined
+        if (!book) {
+          // اسقط على seed إن لم يوجد الكتاب
+          const seed = seedProvider.getBookDetailPayload?.(bookId)
+          return seed ? { ...seed, mode: 'd1' } : { book: undefined, author: undefined, tafseersCount: 0, sampleTafseers: [], relatedBooks: [], mode: 'd1' }
+        }
+        const [author, countRow, sampleRes, relatedRes] = await Promise.all([
+          this.getAuthorById(book.authorId) as Promise<Author | undefined>,
+          db.prepare('SELECT COUNT(*) AS c FROM tafsir_entries WHERE book_id = ?1')
+            .bind(book.id).first<any>().catch(() => ({ c: 0 })),
+          db.prepare(
+            `SELECT id, book_id, author_id, surah_number, ayah_number, text,
+                    source_type, verification_status, is_original_text,
+                    source_name, edition, volume, page, source_url, reviewer_note, is_sample
+               FROM tafsir_entries WHERE book_id = ?1
+              ORDER BY surah_number ASC, ayah_number ASC, id ASC LIMIT 8`
+          ).bind(book.id).all<any>().catch(() => ({ results: [] })),
+          db.prepare(
+            `SELECT id, title, full_title, author_id, schools, volumes, description,
+                    published_year, edition, popularity, featured
+               FROM tafsir_books WHERE author_id = ?1 AND id <> ?2
+              ORDER BY popularity DESC, title ASC LIMIT 8`
+          ).bind(book.authorId, book.id).all<any>().catch(() => ({ results: [] })),
+        ])
+        const sampleRows = (sampleRes.results || []).map(rowToTafseerEntry)
+        const relatedRows = (relatedRes.results || []).map(rowToBook)
+        return {
+          book,
+          author,
+          tafseersCount: Number(countRow?.c || 0),
+          sampleTafseers: sampleRows,
+          relatedBooks: relatedRows,
+          mode: 'd1',
+        }
+      } catch {
+        const seed = seedProvider.getBookDetailPayload?.(bookId)
+        return seed ? { ...seed, mode: 'd1' } : { book: undefined, author: undefined, tafseersCount: 0, sampleTafseers: [], relatedBooks: [], mode: 'd1' }
+      }
+    },
+
+    /**
+     * Payload لصفحة /authors/:id — استعلامات مُحسَّنة بالموازاة:
+     *   1) المؤلّف
+     *   2) كتبه
+     *   3) عدد تفاسيره
+     */
+    async getAuthorDetailPayload(authorId: string): Promise<AuthorDetailPayload> {
+      if (!authorId || typeof authorId !== 'string') {
+        return { author: undefined, books: [], tafseersCount: 0, mode: 'd1' }
+      }
+      try {
+        const [author, books, countRow] = await Promise.all([
+          this.getAuthorById(authorId) as Promise<Author | undefined>,
+          this.getBooksByAuthor!(authorId) as Promise<TafseerBook[]>,
+          db.prepare('SELECT COUNT(*) AS c FROM tafsir_entries WHERE author_id = ?1')
+            .bind(authorId).first<any>().catch(() => ({ c: 0 })),
+        ])
+        return {
+          author,
+          books,
+          tafseersCount: Number(countRow?.c || 0),
+          mode: 'd1',
+        }
+      } catch {
+        const seed = seedProvider.getAuthorDetailPayload?.(authorId)
+        return seed ? { ...seed, mode: 'd1' } : { author: undefined, books: [], tafseersCount: 0, mode: 'd1' }
+      }
+    },
+
+    /**
+     * Payload لصفحة /surahs/:n — استعلامات مُحسَّنة بالموازاة:
+     *   1) السورة
+     *   2) كل آيات السورة
+     *   3) عدد تفاسير لكل آية + إجمالي
+     */
+    async getSurahDetailPayload(surahNumber: number): Promise<SurahDetailPayload> {
+      if (!Number.isFinite(surahNumber) || surahNumber < 1 || surahNumber > 114) {
+        return { surah: undefined, ayahs: [], tafseersByAyah: {}, tafseersCount: 0, mode: 'd1' }
+      }
+      try {
+        const [surah, ayahs, perAyah] = await Promise.all([
+          this.getSurahByNumber(surahNumber) as Promise<Surah | undefined>,
+          this.listAyahsForSurah(surahNumber) as Promise<Ayah[]>,
+          db.prepare(
+            `SELECT ayah_number, COUNT(*) AS c FROM tafsir_entries
+              WHERE surah_number = ?1 GROUP BY ayah_number`
+          ).bind(surahNumber).all<any>().catch(() => ({ results: [] })),
+        ])
+        const tafseersByAyah: Record<number, number> = {}
+        let total = 0
+        for (const r of (perAyah?.results || [])) {
+          const k = Number((r as any).ayah_number)
+          const v = Number((r as any).c || 0)
+          tafseersByAyah[k] = v
+          total += v
+        }
+        return {
+          surah,
+          ayahs,
+          tafseersByAyah,
+          tafseersCount: total,
+          mode: 'd1',
+        }
+      } catch {
+        const seed = seedProvider.getSurahDetailPayload?.(surahNumber)
+        return seed ? { ...seed, mode: 'd1' } : { surah: undefined, ayahs: [], tafseersByAyah: {}, tafseersCount: 0, mode: 'd1' }
       }
     },
 

@@ -85,8 +85,20 @@ export const AuthorsPage = ({
   )
 }
 
-export const AuthorDetailPage = ({ authorId }: { authorId: string }) => {
-  const a = AUTHORS.find(x => x.id === authorId)
+export const AuthorDetailPage = ({
+  authorId,
+  author: authorProp,
+  books: booksProp,
+  tafseersCount,
+  dataMode = 'seed',
+}: {
+  authorId: string
+  author?: any
+  books?: any[]
+  tafseersCount?: number
+  dataMode?: 'seed' | 'd1'
+}) => {
+  const a = authorProp || AUTHORS.find(x => x.id === authorId)
   if (!a) {
     return (
       <>
@@ -101,7 +113,7 @@ export const AuthorDetailPage = ({ authorId }: { authorId: string }) => {
       </>
     )
   }
-  const books = BOOKS.filter(b => b.authorId === a.id)
+  const books = booksProp && booksProp.length ? booksProp : BOOKS.filter(b => b.authorId === a.id)
 
   return (
     <>
@@ -124,6 +136,12 @@ export const AuthorDetailPage = ({ authorId }: { authorId: string }) => {
                 <span class="badge">القرن {a.century}هـ</span>
                 {a.origin ? <span class="badge badge-gold">{a.origin}</span> : null}
                 {a.school ? <span class="badge">{a.school}</span> : null}
+                {typeof tafseersCount === 'number' && (
+                  <span class="badge badge-outline">{tafseersCount} تفسير</span>
+                )}
+                <span class="badge badge-outline" title="مصدر البيانات الحالي">
+                  وضع البيانات: {dataMode === 'd1' ? 'D1' : 'Seed'}
+                </span>
               </div>
               <p style="line-height:1.95">{a.bio}</p>
             </div>

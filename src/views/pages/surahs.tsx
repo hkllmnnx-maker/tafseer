@@ -89,8 +89,24 @@ export const SurahsPage = ({
   )
 }
 
-export const SurahDetailPage = ({ surahNumber }: { surahNumber: number }) => {
-  const surah = getSurahByNumber(surahNumber)
+export const SurahDetailPage = ({
+  surahNumber,
+  surah: surahProp,
+  ayahs: ayahsProp,
+  tafseersByAyah,
+  tafseersCount,
+  coverage,
+  dataMode = 'seed',
+}: {
+  surahNumber: number
+  surah?: any
+  ayahs?: any[]
+  tafseersByAyah?: Record<number, number>
+  tafseersCount?: number
+  coverage?: { ayahsCount: number; expectedAyahs: number; isComplete: boolean; coveragePercent: number; mode: 'seed' | 'd1' }
+  dataMode?: 'seed' | 'd1'
+}) => {
+  const surah = surahProp || getSurahByNumber(surahNumber)
   if (!surah) {
     return (
       <>
@@ -102,7 +118,7 @@ export const SurahDetailPage = ({ surahNumber }: { surahNumber: number }) => {
       </>
     )
   }
-  const ayahs = getAyahsBySurah(surahNumber)
+  const ayahs = ayahsProp && ayahsProp.length ? ayahsProp : getAyahsBySurah(surahNumber)
 
   return (
     <>
@@ -120,6 +136,20 @@ export const SurahDetailPage = ({ surahNumber }: { surahNumber: number }) => {
           </div>
           <h1>سورة {surah.name}</h1>
           <p class="text-tertiary">{surah.nameLatin}</p>
+          <div class="flex flex-wrap gap-2 mt-3" style="justify-content:center">
+            <span class={`badge ${dataMode === 'd1' ? 'badge-success' : 'badge-gold'}`} title="مصدر البيانات">
+              وضع البيانات: {dataMode === 'd1' ? 'D1' : 'Seed'}
+            </span>
+            {coverage ? (
+              <span class={`badge ${coverage.isComplete ? 'badge-success' : 'badge-outline'}`}
+                    title="تغطية القرآن في المصدر الحالي">
+                {coverage.isComplete ? '✓ القرآن كامل' : `تغطية ${coverage.coveragePercent}%`}
+              </span>
+            ) : null}
+            {typeof tafseersCount === 'number' && tafseersCount > 0 ? (
+              <span class="badge badge-outline">{tafseersCount} تفسير لهذه السورة</span>
+            ) : null}
+          </div>
           <div class="flex flex-wrap gap-2 mt-4" style="justify-content:center">
             <a href={`/read/${surah.number}`} class="btn btn-primary">
               <IconBookOpen size={16} /> قراءة متسلسلة (آيات + تفاسير)
@@ -154,7 +184,10 @@ export const SurahDetailPage = ({ surahNumber }: { surahNumber: number }) => {
             </h2>
             <div class="flex" style="flex-direction:column;gap:1rem">
               {ayahs.map(a => {
-                const tafCount = TAFSEERS.filter(t => t.surah === a.surah && t.ayah === a.number).length
+                // Use D1-provided per-ayah counts when available; fallback to seed.
+                const tafCount = tafseersByAyah && (a.number in tafseersByAyah)
+                  ? tafseersByAyah[a.number]
+                  : TAFSEERS.filter(t => t.surah === a.surah && t.ayah === a.number).length
                 return (
                   <a href={`/ayah/${a.surah}/${a.number}`} class="result-item" style="text-decoration:none;color:inherit;display:block">
                     <div class="result-meta">

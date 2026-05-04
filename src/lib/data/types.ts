@@ -24,6 +24,44 @@ export type {
   SearchFilters, SearchResults, Suggestion,
 }
 
+/** Payload لصفحة تفاصيل كتاب /books/:id */
+export interface BookDetailPayload {
+  book: TafseerBook | undefined
+  author: Author | undefined
+  /** عدد التفاسير المفهرسة لهذا الكتاب. */
+  tafseersCount: number
+  /** أول 8 تفاسير للعرض كمقتطفات (لا N+1). */
+  sampleTafseers: TafseerEntry[]
+  /** كتب أخرى لنفس المؤلّف (لا تتضمّن الكتاب الحالي). */
+  relatedBooks: TafseerBook[]
+  /** اسم المزوّد. */
+  mode: 'seed' | 'd1'
+}
+
+/** Payload لصفحة تفاصيل مؤلّف /authors/:id */
+export interface AuthorDetailPayload {
+  author: Author | undefined
+  /** كتب هذا المؤلّف. */
+  books: TafseerBook[]
+  /** عدد التفاسير الإجمالي للمؤلّف. */
+  tafseersCount: number
+  /** اسم المزوّد. */
+  mode: 'seed' | 'd1'
+}
+
+/** Payload لصفحة تفاصيل سورة /surahs/:n */
+export interface SurahDetailPayload {
+  surah: Surah | undefined
+  /** الآيات المتاحة من هذه السورة. */
+  ayahs: Ayah[]
+  /** عدد التفاسير لكل آية (مفهرس). */
+  tafseersByAyah: Record<number, number>
+  /** إجمالي عدد التفاسير لهذه السورة. */
+  tafseersCount: number
+  /** اسم المزوّد. */
+  mode: 'seed' | 'd1'
+}
+
 /** ملخّص تغطية القرآن في قاعدة البيانات الحالية. */
 export interface QuranCoverageSummary {
   /** عدد الآيات الموجودة فعلًا في قاعدة البيانات. */
@@ -175,10 +213,24 @@ export interface DataProvider {
   // -------- Books --------
   listBooks(): TafseerBook[] | Promise<TafseerBook[]>
   getBookById(id: string): TafseerBook | undefined | Promise<TafseerBook | undefined>
+  /** كل كتب مؤلّف معيّن. */
+  getBooksByAuthor?(authorId: string): TafseerBook[] | Promise<TafseerBook[]>
+  /** عدد التفاسير لكتاب معيّن. */
+  getTafseerCountByBook?(bookId: string): number | Promise<number>
+  /** Payload جاهز لصفحة /books/:id (يخفض N+1). */
+  getBookDetailPayload?(bookId: string): BookDetailPayload | Promise<BookDetailPayload>
 
   // -------- Authors --------
   listAuthors(): Author[] | Promise<Author[]>
   getAuthorById(id: string): Author | undefined | Promise<Author | undefined>
+  /** عدد التفاسير لمؤلّف معيّن. */
+  getTafseerCountByAuthor?(authorId: string): number | Promise<number>
+  /** Payload جاهز لصفحة /authors/:id (يخفض N+1). */
+  getAuthorDetailPayload?(authorId: string): AuthorDetailPayload | Promise<AuthorDetailPayload>
+
+  // -------- Surahs (detail) --------
+  /** Payload جاهز لصفحة /surahs/:n (آيات + عدد تفاسير لكل آية). */
+  getSurahDetailPayload?(surahNumber: number): SurahDetailPayload | Promise<SurahDetailPayload>
 
   // -------- Categories --------
   listCategories(): Category[] | Promise<Category[]>

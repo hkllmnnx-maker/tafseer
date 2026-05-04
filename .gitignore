@@ -37,3 +37,13 @@ dist/import/
 .imports/
 *.quran.json
 quran-full.json
+*.full.json
+
+# Generated full-Quran SQL (too large for Git)
+dist/import/ayahs-full.sql
+dist/import/quran-full-report.json
+
+# Generated full-tafsir SQL (only sample tafsir SQL is allowed)
+dist/import/tafsir-full.sql
+dist/import/tafsir-full-report.json
+*.tafsir-full.json

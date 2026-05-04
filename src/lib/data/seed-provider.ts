@@ -23,6 +23,7 @@ import type {
   DataProvider, BasicStats, DetailedStatsLike,
   Surah, Ayah, TafseerBook, Author, Category, TafseerEntry,
   QuranCoverageSummary, ReadSurahPayload,
+  BookDetailPayload, AuthorDetailPayload, SurahDetailPayload,
 } from './types'
 
 export const seedProvider: DataProvider = {
@@ -126,11 +127,76 @@ export const seedProvider: DataProvider = {
   getBookById(id: string): TafseerBook | undefined {
     return BOOKS.find(b => b.id === id)
   },
+  getBooksByAuthor(authorId: string): TafseerBook[] {
+    if (!authorId || typeof authorId !== 'string') return []
+    return BOOKS.filter(b => b.authorId === authorId)
+  },
+  getTafseerCountByBook(bookId: string): number {
+    if (!bookId || typeof bookId !== 'string') return 0
+    return TAFSEERS.filter(t => t.bookId === bookId).length
+  },
+  getBookDetailPayload(bookId: string): BookDetailPayload {
+    const book = BOOKS.find(b => b.id === bookId)
+    const author = book ? AUTHORS.find(a => a.id === book.authorId) : undefined
+    const tafs = book ? TAFSEERS.filter(t => t.bookId === book.id) : []
+    const sampleTafseers = tafs.slice(0, 8)
+    const relatedBooks = author
+      ? BOOKS.filter(b => b.authorId === author.id && b.id !== bookId)
+      : []
+    return {
+      book,
+      author,
+      tafseersCount: tafs.length,
+      sampleTafseers,
+      relatedBooks,
+      mode: 'seed',
+    }
+  },
 
   // ---- Authors ----
   listAuthors(): Author[] { return AUTHORS },
   getAuthorById(id: string): Author | undefined {
     return AUTHORS.find(a => a.id === id)
+  },
+  getTafseerCountByAuthor(authorId: string): number {
+    if (!authorId || typeof authorId !== 'string') return 0
+    // التفاسير لا تحوي author_id مباشرة في seed → نمرّ عبر الكتب.
+    const bookIds = new Set(BOOKS.filter(b => b.authorId === authorId).map(b => b.id))
+    return TAFSEERS.filter(t => bookIds.has(t.bookId)).length
+  },
+  getAuthorDetailPayload(authorId: string): AuthorDetailPayload {
+    const author = AUTHORS.find(a => a.id === authorId)
+    const books = author ? BOOKS.filter(b => b.authorId === author.id) : []
+    const bookIds = new Set(books.map(b => b.id))
+    const tafseersCount = TAFSEERS.filter(t => bookIds.has(t.bookId)).length
+    return {
+      author,
+      books,
+      tafseersCount,
+      mode: 'seed',
+    }
+  },
+
+  // ---- Surahs (detail) ----
+  getSurahDetailPayload(surahNumber: number): SurahDetailPayload {
+    const surah = _getSurahByNumber(surahNumber)
+    const ayahs = AYAHS
+      .filter(a => a.surah === surahNumber)
+      .sort((a, b) => a.number - b.number)
+    const tafseersByAyah: Record<number, number> = {}
+    let total = 0
+    for (const t of TAFSEERS) {
+      if (t.surah !== surahNumber) continue
+      tafseersByAyah[t.ayah] = (tafseersByAyah[t.ayah] || 0) + 1
+      total++
+    }
+    return {
+      surah,
+      ayahs,
+      tafseersByAyah,
+      tafseersCount: total,
+      mode: 'seed',
+    }
   },
 
   // ---- Categories ----
