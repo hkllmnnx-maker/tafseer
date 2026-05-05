@@ -24,6 +24,8 @@
     "validate:tafsir-sample": "node scripts/importers/validate-tafsir-json.mjs fixtures/import-samples/tafsir-valid-sample.json --dry-run",
     "import:tafsir": "node scripts/importers/import-tafsir.mjs",
     "import:tafsir:sample": "node scripts/importers/import-tafsir.mjs fixtures/import-samples/tafsir-valid-sample.json",
+    "verify:tafsir-d1": "node scripts/importers/verify-tafsir-d1.mjs",
+    "verify:tafsir-d1:dry": "node scripts/importers/verify-tafsir-d1.mjs --dry-run --book muyassar",
     "report:status": "node scripts/report-data-status.mjs",
     "report:status:json": "node scripts/report-data-status.mjs --json",
     "report:status:local": "node scripts/report-data-status.mjs --local",
