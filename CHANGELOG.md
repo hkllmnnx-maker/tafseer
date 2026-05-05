@@ -13,6 +13,59 @@
 
 ---
 
+## [0.16.0] — 2026-05-05 (v1.10 — Production Deployment Toolkit)
+
+### Added
+- **`scripts/deploy/setup-production.sh`** (~12 KB): سكريبت نشر تلقائي شامل من 10 خطوات:
+  1. التحقق من توكن Cloudflare وصلاحياته (Pages, D1, Account access).
+  2. إنشاء قاعدة D1 الإنتاجية (`tafseer-production`) إن لم تكن موجودة، مع تحديث `wrangler.jsonc` تلقائياً بـ `database_id`.
+  3. تطبيق ترحيلات `db/migrations/` على الإنتاج.
+  4. رفع `seed-data.sql` (الكتب/المؤلفون/العيّنات الكلاسيكية).
+  5. رفع `ayahs-full.sql` (القرآن الكامل — 6,236 آية).
+  6. رفع `tafsir-real.sql` (التفسير الميسر — 6,236 إدخال).
+  7. التحقق من سلامة البيانات في الإنتاج (`verify-quran-d1` + `verify-tafsir-d1`).
+  8. بناء المشروع (`npm run build`).
+  9. إنشاء مشروع Cloudflare Pages إن لم يكن موجوداً.
+  10. النشر النهائي (`wrangler pages deploy`).
+- **`scripts/deploy/fetch-quran.sh`**: تنزيل القرآن من AlQuran Cloud وتحويله للصيغة الموحَّدة بأمر واحد.
+- **`scripts/deploy/fetch-tafsir.sh`**: تنزيل التفسير الميسر من AlQuran Cloud وتحويله للصيغة الموحَّدة بأمر واحد.
+- **`DEPLOYMENT.md`** (~6.5 KB): دليل نشر مفصَّل يشمل:
+  - ملخّص حالة النشر الحالية (محلي 100% جاهز / إنتاج معلَّق على التوكن).
+  - التحقق التفصيلي من سبب فشل التوكن الحالي (`9109 Unauthorized` / `10000 Authentication error`).
+  - قائمة الصلاحيات المطلوبة لإنشاء توكن صالح (Pages:Edit, D1:Edit, Workers Scripts:Edit, ...).
+  - النشر اليدوي خطوة بخطوة (6 مراحل) كبديل للسكريبت.
+  - أوامر اختبار ما بعد النشر.
+
+### Changed
+- `docs/data-status-report.md`: ترقية إلى v1.10 + إضافة §7.1 (المهام المنجزة) + §7.2 (المهمة المعلَّقة على المستخدم) + §10 (سجلّ تحقق عملي كامل من 14 خطوة).
+
+### Verified
+- **162/162 اختبار وحدة ناجح** (لا تراجع).
+- البيانات المحلية في D1 سليمة 100%: `verify-quran-d1 → complete` و `verify-tafsir-d1 → 6236/6236 verified`.
+- كل مسارات التطبيق ترجع HTTP 200: `/`, `/read/:n`, `/dashboard`, `/api/stats`, `/api/quran/coverage`, `/api/ayah/:s/:a`, `/api/search`, `/robots.txt`, `/sitemap.xml`.
+- المعاينة العامة في Sandbox تعمل وترجع `mode:d1, ayahsCount:6236, tafseersCount:6333`.
+
+### Blocked (External Action Required)
+- **النشر الإنتاجي على Cloudflare Pages** معلَّق لأن التوكن المُعطى صالح كـ User API Token
+  لكنه لا يملك صلاحيات Account-level على الحساب `7ed903da...`. الإصلاح يتطلب
+  إنشاء توكن جديد بالصلاحيات المُوضَّحة في `DEPLOYMENT.md §3` ثم تشغيل
+  `bash scripts/deploy/setup-production.sh` (تشغيل واحد يكتمل النشر تلقائيًا).
+
+---
+
+## [0.15.0] — 2026-05-05 (v1.9 — Production-Ready Data Platform)
+
+### Added
+- استيراد القرآن الكامل (6,236 آية / 114 سورة) إلى D1 من Quran Uthmani / Tanzil عبر AlQuran Cloud.
+- استيراد تفسير الميسر الكامل (6,236 إدخال موثَّق) من مجمع الملك فهد لطباعة المصحف.
+- `scripts/importers/verify-tafsir-d1.mjs`: مدقّق سلامة بيانات التفسير في D1.
+- دعم المؤلِّفين المؤسسيين (`isInstitution: true`) في `import-tafsir.mjs` (لاستيعاب ناشرين كمجمع الملك فهد بدلاً من أشخاص لهم سنة وفاة).
+
+### Changed
+- `docs/data-status-report.md`: تقرير حالة البيانات الكامل (~7.5 KB).
+
+---
+
 ## [0.14.0] — 2026-05-02 (v1.8 — Tafsir Importer + D1 Verifier)
 
 ### Added

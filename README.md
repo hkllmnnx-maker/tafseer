@@ -4,20 +4,25 @@
 
 تطبيق ويب متقدم للبحث في كتب تفسير القرآن الكريم، بواجهة عربية أصيلة (RTL) ونظام تصميم احترافي مبني على Cloudflare Pages + Hono.
 
-> **حالة البيانات الحالية (v1.9 — Production-Ready Data Platform)**:
+> **حالة البيانات الحالية (v1.10 — Production Deployment Toolkit)**:
 > - ✅ **القرآن الكامل** مُستورَد إلى D1: **6,236 آية / 114 سورة** من
 >   AlQuran Cloud (نص Tanzil Uthmani).
 > - ✅ **تفسير حقيقي مُستورَد**: تفسير الميسر (مجمع الملك فهد) — **6,236 إدخال
 >   `original-text` / `verified`** يغطّي كل آيات القرآن.
 > - ✅ `/api/quran/coverage` يعيد `isComplete:true, coveragePercent:100, mode:'d1'`.
+> - ✅ **مجموعة أدوات نشر إنتاجية** جديدة:
+>   `scripts/deploy/setup-production.sh` (10 خطوات تلقائية) +
+>   `fetch-quran.sh` + `fetch-tafsir.sh` + دليل [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+> - ✅ **162/162 اختبار وحدة ناجح** — لا تراجع.
 > - ⚠️ ملفات الاستيراد الكبيرة لا تُلتزم في Git (محميّة عبر `.gitignore`).
->   راجع [`docs/data-status-report.md`](./docs/data-status-report.md) للتفاصيل.
+>   راجع [`docs/data-status-report.md`](./docs/data-status-report.md) و
+>   [`DEPLOYMENT.md`](./DEPLOYMENT.md) للتفاصيل.
 
 ---
 
 ## 📊 جدول حالة المشروع (Project Status)
 
-> **آخر تحديث**: 5 مايو 2026 (v1.9 — Production-Ready Data Platform: Full Quran + Real Tafsir in D1)
+> **آخر تحديث**: 5 مايو 2026 (v1.10 — Production Deployment Toolkit: setup-production.sh + DEPLOYMENT.md + 162/162 tests)
 
 | المحور | الحالة | التفاصيل |
 |--------|--------|----------|
@@ -35,7 +40,7 @@
 | **Permissions-Policy** | ✅ مكتمل | إغلاق camera/mic/geo/payment/usb |
 | **HSTS / COOP / CORP** | ✅ مكتمل | كلها مفعَّلة |
 | **حقن SQL** | ✅ محصَّن | جميع استعلامات D1 عبر `prepare().bind()` فقط، لا concatenation |
-| **اختبارات الوحدات** | ✅ **139/139 ناجحة** | `node:test` + Mock D1 + Quran/Tafsir validators + normalize + seed export + verify-quran-d1 + DataProvider |
+| **اختبارات الوحدات** | ✅ **162/162 ناجحة** | `node:test` + Mock D1 + Quran/Tafsir validators + normalize + seed export + verify-quran-d1 + verify-tafsir-d1 + DataProvider |
 | **CI (GitHub Actions)** | ✅ يعمل | verify-data + validate-samples + validate-tafsir-sample + verify:quran-d1:dry + export-seed + tests + build |
 | **مستورد Quran JSON** | ✅ مكتمل | `validate-quran-json.mjs` + 16 اختبارًا + عينات صالحة/خاطئة + `import-quran.mjs` |
 | **مستورد Tafsir JSON 🆕** | ✅ مكتمل | `validate-tafsir-json.mjs` + **27 اختبارًا** + عينات صالحة/خاطئة + خطّة استيراد كاملة |
@@ -44,7 +49,8 @@
 | **FTS5 Migration** | ✅ منفصل (اختياري) | `0002_optional_fts5.sql` لا يُطبَّق تلقائيًا |
 | **التحقّق العلمي** | 🟡 إطار جاهز | `sourceType` + `verificationStatus` على كل إدخال؛ المحتوى لا يزال غالبًا `summary` |
 | **التوثيق** | ✅ شامل | 9+ ملفات في `/docs` + README + CONTRIBUTING + CHANGELOG + SECURITY |
-| **النشر** | 🟡 محلّيًا فقط | جاهز للنشر بـ `npm run deploy` بعد ضبط Cloudflare API token |
+| **النشر** | 🟡 جاهز — معلَّق على التوكن | `scripts/deploy/setup-production.sh` (10 خطوات تلقائية) جاهز؛ يحتاج Cloudflare API Token بصلاحيات `Pages:Edit` + `D1:Edit` + `Account:Read` (راجع [`DEPLOYMENT.md`](./DEPLOYMENT.md)) |
+| **🆕 مجموعة أدوات النشر** | ✅ مكتملة | `scripts/deploy/setup-production.sh` + `fetch-quran.sh` + `fetch-tafsir.sh` + `DEPLOYMENT.md` (~6.5 KB) |
 
 **الرموز:** ✅ مكتمل · 🟡 جاهز/جزئي · ⏳ مخطّط · ❌ غير مدعوم.
 
@@ -490,6 +496,17 @@ curl https://<your-pages>/api/ayah/2/255     # آية الكرسي
 ---
 
 ## 15) آخر تحديث
+**5 مايو 2026 (v1.10 — Production Deployment Toolkit)** — إضافة مجموعة أدوات نشر إنتاجية شاملة:
+- `scripts/deploy/setup-production.sh` (~12 KB): سكربت نشر تلقائي من 10 خطوات (تحقق توكن، إنشاء D1 إنتاجي، تطبيق ترحيلات، رفع seed/ayahs/tafsir، تحقق من السلامة، بناء، إنشاء مشروع Pages، نشر).
+- `scripts/deploy/fetch-quran.sh` و `fetch-tafsir.sh`: تنزيل وتحويل المصادر من AlQuran Cloud بأمر واحد.
+- `DEPLOYMENT.md` (~6.5 KB): دليل نشر مفصَّل + شرح صلاحيات التوكن المطلوبة + النشر اليدوي خطوة بخطوة.
+- ترقية `docs/data-status-report.md` إلى v1.10 مع سجلّ تحقّق عملي من 14 خطوة.
+- **162/162 اختبار وحدة ناجح** ✅ — لا تراجع.
+- البيانات المحلية في D1 سليمة 100%: 6,236 آية / 114 سورة + 6,333 تفسير، جميع المسارات الحرجة تُرجِع 200.
+- ⚠️ النشر الإنتاجي على Cloudflare Pages معلَّق لأن التوكن المُعطى صالح كـ User API Token لكنه لا يملك صلاحيات Account-level. الإصلاح في [`DEPLOYMENT.md §3`](./DEPLOYMENT.md).
+
+**5 مايو 2026 (v1.9 — Production-Ready Data Platform)** — استيراد القرآن الكامل (6,236 آية) إلى D1 من AlQuran Cloud، استيراد تفسير الميسر الكامل (6,236 إدخال موثَّق) من مجمع الملك فهد، دعم المؤلفين المؤسسيين (`isInstitution`)، سكربت `verify-tafsir-d1.mjs`.
+
 **2 مايو 2026 (v1.8)** — اكتمال خطّ أنابيب البيانات الحقيقية الكامل: مدقّق تفاسير صارم مع 27 اختبار وحدة، سكربت verify-quran-d1 مع 8 اختبارات، توسيع DataProvider بـ `getTafseersForSurah`/`getReadSurahPayload`/`getQuranCoverageSummary` لإلغاء N+1، API `/api/quran/coverage` + بطاقة بصرية، خطّة استيراد تفاسير شاملة، CI يفرض رفض العيّنات الفاسدة و dry-run لـ D1 verifier. **Total: 139/139 tests ✅** و build بحجم 338.86 kB.
 
 **2 مايو 2026 (v1.6)** — اكتمال المرحلة السابقة: PWA v4 مع API fallback ذكي، CSP صارم (إزالة `'unsafe-inline'` من `script-src` واستبداله بـ SHA-256 hash)، D1 Provider مع تبديل تلقائي، 18 اختبار وحدة ناجح، CI محسّن، توثيق شامل (8 ملفات في `/docs`)، وجدول حالة المشروع.
