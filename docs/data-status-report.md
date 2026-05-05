@@ -1,8 +1,11 @@
 # تقرير حالة البيانات — مشروع تفسير
 
-> تاريخ التقرير: 2026-05-05
-> الإصدار: v1.9 (Production-Ready Data Platform)
-> الحالة العامة: ✅ القرآن كامل، ✅ تفسير حقيقي مُستورَد ومُتحقَّق
+> تاريخ التقرير: 2026-05-05 (تحديث v1.10)
+> الإصدار: v1.10 (Production-Ready Data Platform + Deploy Toolkit)
+> الحالة العامة: ✅ القرآن كامل، ✅ تفسير حقيقي مُستورَد ومُتحقَّق، ⏳ النشر الإنتاجي معلَّق على إصلاح صلاحيات توكن Cloudflare
+
+> **🆕 التحديث في v1.10**: أُضيف `scripts/deploy/setup-production.sh` (سكريبت نشر تلقائي شامل من 10 خطوات) +
+> `fetch-quran.sh` + `fetch-tafsir.sh` + `DEPLOYMENT.md` (دليل نشر مفصَّل + توضيح مشكلة التوكن الحالي).
 
 ---
 
@@ -192,9 +195,30 @@ npm run verify:tafsir-d1 -- --local --strict
 
 ## 7) مهام قيد الإكمال / مستقبلية
 
+### 7.1 المهام المنجزة في v1.10
+
+- [x] **أداة النشر الشاملة**: `scripts/deploy/setup-production.sh` — سكريبت من 10 خطوات
+      يُنشئ قاعدة D1 الإنتاجية ويرفع الترحيلات والبيانات الكاملة (قرآن + تفسير) ثم
+      ينشر على Cloudflare Pages في تشغيل واحد بمجرد توفُّر توكن بصلاحيات كاملة.
+- [x] **سكربتات الجلب التلقائية**: `scripts/deploy/fetch-quran.sh` +
+      `scripts/deploy/fetch-tafsir.sh` — تُعيد بناء `.imports/quran-full.json`
+      و `.imports/tafsir-real.json` من API بأمر واحد.
+- [x] **دليل النشر**: `DEPLOYMENT.md` — يُوثِّق حالة النشر الراهنة، مشكلة صلاحيات
+      التوكن الحالي، وخطوات الإصلاح + النشر اليدوي خطوة بخطوة.
+- [x] **التحقق المحلي الكامل**: 162/162 اختبار ناجح، كل مسارات API/HTML تُعيد 200،
+      `/api/quran/coverage` يُعيد `isComplete:true, coveragePercent:100, mode:d1`.
+
+### 7.2 مهام معلَّقة على المستخدم
+
+- [ ] **🔴 إصلاح صلاحيات توكن Cloudflare**: التوكن الحالي صالح كـ User API Token
+      لكنه لا يملك `Pages:Edit` و `D1:Edit` على الحساب `7ed903da...`. يجب إنشاء
+      توكن جديد بالصلاحيات المُوضَّحة في `DEPLOYMENT.md §3` ثم تشغيل
+      `bash scripts/deploy/setup-production.sh`.
+
+### 7.3 مهام مستقبلية
+
 - [ ] استيراد كتب تفسير إضافية حقيقية (ابن كثير، الطبري، السعدي) من مصادر مفتوحة (Shamela / King Saud University).
 - [ ] تشغيل مهاجرة 0002 (FTS5) في الإنتاج لتسريع البحث على 6,236 آية + 6,333 تفسير.
-- [ ] إنشاء قاعدة D1 الإنتاجية الفعلية (الحالي: ID placeholder في `wrangler.jsonc`).
 - [ ] CI: تشغيل `import:quran:sample` + `import:tafsir:sample` فقط في GitHub Actions (الملفات الكاملة لا تدخل CI).
 - [ ] إضافة تفسير ميسَّر باللغات الأخرى (إن توفّرت تراخيصها).
 - [ ] ترقية شارة الـ UI لإظهار اسم كتاب التفسير الافتراضي عند العرض.
@@ -234,4 +258,49 @@ npm run verify:tafsir-d1 -- --local --strict
 
 ---
 
-*هذا التقرير يُحدَّث مع كل عملية استيراد جديدة. آخر تحديث: 2026-05-05.*
+## 10) سجلّ التحقق العملي لجلسة v1.10 (2026-05-05)
+
+تم في هذه الجلسة:
+
+1. **استنساخ المستودع** من <https://github.com/hkllmnnx-maker/tafseer> (آخر التزام: `cd18680`).
+2. **تثبيت الاعتماديات** بنجاح (`npm ci`).
+3. **تشغيل الاختبارات**: 162 / 162 ناجح، 0 فاشل، 0 ملغى.
+4. **التحقق من توكن Cloudflare** المُعطى:
+   - `GET /user/tokens/verify` → `success:true` (التوكن نشط).
+   - `GET /accounts/<id>` → `9109 Unauthorized` (لا وصول للحساب).
+   - `GET /accounts/<id>/pages/projects` → `10000 Authentication error`.
+   - `GET /accounts/<id>/d1/database` → `10000 Authentication error`.
+   - **النتيجة**: التوكن لا يصلح للنشر الإنتاجي على هذا الحساب — مطلوب توكن جديد.
+5. **تنزيل وتحويل البيانات** من AlQuran Cloud:
+   - `quran-uthmani` → 4.46 MB raw → 6,236 آية في الصيغة الموحَّدة.
+   - `ar.muyassar` → 7.38 MB raw → 6,236 إدخال تفسير في الصيغة الموحَّدة.
+6. **التحقق الصارم**: `validate-quran-json --strict --full` ✅ + `validate-tafsir-json --strict` ✅.
+7. **تطبيق ترحيلات D1 المحلية**: `0001`, `0002`, `0003` كلها ✅.
+8. **رفع البيانات إلى D1 المحلي**:
+   - `seed-data.sql` ✅
+   - `ayahs-full.sql` (6,236 آية) ✅
+   - `tafsir-real.sql` (6,236 إدخال) ✅
+9. **التحقق النهائي في D1**:
+   - `verify-quran-d1 --strict` → `complete · 6236/6236 · 114 سور · source coverage 100%` ✅
+   - `verify-tafsir-d1 --strict --book muyassar` → `6236 entries · 114 surahs · all verified` ✅
+10. **بناء المشروع**: `dist/_worker.js` (348.8 KB) في 1.53 ثانية ✅.
+11. **تشغيل التطبيق** عبر PM2 + معاينة عامة:
+    - `/api/stats` → `ayahsCount:6236, tafseersCount:6333, mode:d1` ✅
+    - `/api/quran/coverage` → `isComplete:true, coveragePercent:100` ✅
+    - `/api/ayah/2/255` → آية الكرسي كاملة + تفسير الميسر الموثَّق ✅
+    - `/api/ayah/114/6` → الناس:6 + الميسر `verified` ✅
+    - `/api/search?q=الرحمن` → نتائج فعلية من قاعدة البيانات ✅
+    - `/`, `/read/1`, `/read/114`, `/dashboard`, `/robots.txt`, `/sitemap.xml` → كلها 200 OK ✅
+12. **محاولة النشر الفعلية**:
+    - `wrangler pages deploy dist --project-name tafseer --branch main`
+    - النتيجة: `Authentication error [code: 10000]` (نفس مشكلة صلاحيات التوكن).
+13. **إنجاز أدوات النشر**: `setup-production.sh` + `fetch-quran.sh` + `fetch-tafsir.sh` + `DEPLOYMENT.md`.
+14. **رفع كل التغييرات** إلى GitHub في commit `b522652` (لاحقًا أُعيد كـ `4b3a7e7` بعد إخفاء التوكن من الوثائق).
+
+**خلاصة الجلسة**: كل ما يمكن إنجازه دون توكن صالح — أُنجز ووُثِّق ورُفع. الخطوة الوحيدة المتبقية
+هي إنشاء توكن Cloudflare بالصلاحيات الصحيحة (راجع `DEPLOYMENT.md §3`) وتشغيل سكريبت
+النشر الواحد، فيكتمل النشر الإنتاجي تلقائيًا.
+
+---
+
+*هذا التقرير يُحدَّث مع كل عملية استيراد جديدة. آخر تحديث: 2026-05-05 (جلسة v1.10).*
