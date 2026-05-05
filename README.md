@@ -4,19 +4,28 @@
 
 تطبيق ويب متقدم للبحث في كتب تفسير القرآن الكريم، بواجهة عربية أصيلة (RTL) ونظام تصميم احترافي مبني على Cloudflare Pages + Hono.
 
-> **حالة البيانات الحالية**: هذه نسخة تشغّل ببيانات seed داخل المستودع (114 سورة كاملة الفهرسة + ~295 آية + ~100 إدخال تفسير) وغالب نصوص التفاسير صياغات مختصرة (summary/sample) لا نقل حرفي. للتفاصيل انظر `/methodology` و `docs/scientific-verification.md` و `docs/roadmap.md`.
+> **حالة البيانات الحالية (v1.9 — Production-Ready Data Platform)**:
+> - ✅ **القرآن الكامل** مُستورَد إلى D1: **6,236 آية / 114 سورة** من
+>   AlQuran Cloud (نص Tanzil Uthmani).
+> - ✅ **تفسير حقيقي مُستورَد**: تفسير الميسر (مجمع الملك فهد) — **6,236 إدخال
+>   `original-text` / `verified`** يغطّي كل آيات القرآن.
+> - ✅ `/api/quran/coverage` يعيد `isComplete:true, coveragePercent:100, mode:'d1'`.
+> - ⚠️ ملفات الاستيراد الكبيرة لا تُلتزم في Git (محميّة عبر `.gitignore`).
+>   راجع [`docs/data-status-report.md`](./docs/data-status-report.md) للتفاصيل.
 
 ---
 
 ## 📊 جدول حالة المشروع (Project Status)
 
-> **آخر تحديث**: 2 مايو 2026 (v1.8 — Tafsir Importer + D1 Verifier + Full Pipeline)
+> **آخر تحديث**: 5 مايو 2026 (v1.9 — Production-Ready Data Platform: Full Quran + Real Tafsir in D1)
 
 | المحور | الحالة | التفاصيل |
 |--------|--------|----------|
 | **البنية الأساسية** | ✅ مكتملة | Hono + Cloudflare Pages + RTL + JSX |
-| **بيانات seed** | ✅ مكتملة | 114 سورة، 295 آية، 12 كتابًا، 100 تفسير |
-| **بيانات D1** | ✅ جاهزة للتفعيل | المخطّط + المايجريشن + Provider مكتمل، نقطة `--d1` للتشغيل المحلي |
+| **بيانات seed** | ✅ مكتملة | 114 سورة، 295 آية، 12 كتابًا، 100 تفسير (للـ CI والاختبارات) |
+| **🆕 بيانات D1 الإنتاجية** | ✅ **مُستورَدة بالكامل** | **6,236 آية / 114 سورة** + **6,236 إدخال تفسير الميسر** + 97 عيّنة كلاسيكية = 6,333 تفسير |
+| **🆕 القرآن الكامل** | ✅ مكتمل | المصدر: AlQuran Cloud (Tanzil Uthmani) — `isComplete:true`, `coveragePercent:100` |
+| **🆕 تفسير حقيقي موثَّق** | ✅ مكتمل | تفسير الميسر — مجمع الملك فهد — 100% `original-text` + 100% `verified` |
 | **DataProvider موحَّد** | ✅ مكتمل | جميع المسارات الحرجة عبر `getDataProvider(env)`، seed/D1 شفّاف، يشمل `getTafseersForSurah` و `getReadSurahPayload` و `getQuranCoverageSummary` |
 | **بحث D1 (مستقل)** | ✅ مكتمل | JOINs + relevance + filters داخل D1، بدون اعتماد seed، FTS5 اختياري |
 | **محرّك البحث** | ✅ seed + D1 | بحث متقدّم + autocomplete + suggest API + mode flag في الردود |

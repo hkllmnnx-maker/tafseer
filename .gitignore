@@ -46,4 +46,17 @@ dist/import/quran-full-report.json
 # Generated full-tafsir SQL (only sample tafsir SQL is allowed)
 dist/import/tafsir-full.sql
 dist/import/tafsir-full-report.json
+dist/import/tafsir-real.sql
+dist/import/tafsir-real-report.json
 *.tafsir-full.json
+*.tafsir-real.json
+
+# Secrets / tokens / Cloudflare local credentials (never commit)
+*.token
+*.secret
+.env.*
+!.env.example
+.cloudflare-token
+.wrangler-token
+github-token.txt
+cf-token.txt
