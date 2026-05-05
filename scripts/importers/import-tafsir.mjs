@@ -257,8 +257,12 @@ lines.push('-- ===== authors =====')
   const deathYear = Number.isFinite(Number(a.deathYear)) ? Number(a.deathYear) : null
   const birthYear = Number.isFinite(Number(a.birthYear)) ? Number(a.birthYear) : null
   const century   = a.century ?? centuryFromDeathYear(deathYear)
-  if (deathYear === null) {
-    console.error(c.red('✗ author.deathYear مطلوب وغير صحيح.'))
+  // ملاحظة: deathYear قد يكون null إذا كان "المؤلِّف" مؤسسة (مثل مجمع الملك فهد)
+  // وليس شخصًا. في هذه الحالة نستخدم a.isInstitution أو غياب deathYear كإشارة
+  // مقبولة، ولا نُفشل الاستيراد. عمود death_year يقبل NULL في schema.
+  const isInstitution = a.isInstitution === true || a.type === 'institution'
+  if (deathYear === null && !isInstitution) {
+    console.error(c.red('✗ author.deathYear مطلوب وغير صحيح (للأشخاص). إن كان "المؤلِّف" مؤسسة، أضف "isInstitution": true.'))
     process.exit(1)
   }
   lines.push(
